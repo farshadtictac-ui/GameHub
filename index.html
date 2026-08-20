@@ -1071,11 +1071,11 @@
     dragCurrent=null;
   }
 
-  // ---------- ray preview (aim line + wall-bounce-accurate path) ----------
+  // ---------- ray preview: trajectory line to the point of impact / exit ----------
   function raycastPreview(origin, dir, team){
     let ox=origin.x, oy=origin.y, dx=dir.x, dy=dir.y;
     const points = [{x:ox,y:oy}];
-    let hitS=null, bounce=null;
+    let hitS=null;
 
     for(let iter=0; iter<6; iter++){
       let tSoldier=Infinity, sHit=null;
@@ -1109,23 +1109,14 @@
       const ex=ox+dx*tEnd, ey=oy+dy*tEnd;
       points.push({x:ex,y:ey});
 
-      if(branch==='soldier'){
-        hitS = sHit;
-        let ux=(ex-sHit.x), uy=(ey-sHit.y);
-        const nlen=Math.hypot(ux,uy)||1; ux/=nlen; uy/=nlen;
-        const dDotN = dx*ux+dy*uy;
-        const rx = dx-2*dDotN*ux, ry = dy-2*dDotN*uy;
-        bounce = { x1:ex, y1:ey, x2:ex+rx*65, y2:ey+ry*65 };
-        break;
-      }
+      if(branch==='soldier'){ hitS = sHit; break; }
       if(branch==='open') break;
       // wall: reflect horizontally and keep tracing from the bounce point
       dx = -dx; ox = ex; oy = ey;
     }
-    return { points, bounce, hitS };
+    return { points, hitS };
   }
 
-  // ---------- physics ----------
   let lastT=null;
   function tick(t){
     if(lastT===null) lastT=t;
@@ -1306,17 +1297,9 @@
         for(let i=1;i<preview.points.length;i++) ctx.lineTo(preview.points[i].x, preview.points[i].y);
         ctx.strokeStyle=`rgba(255,255,255,${0.35+power*0.4})`; ctx.lineWidth=2; ctx.stroke();
         ctx.setLineDash([]);
-        for(let i=1;i<preview.points.length-1;i++){
-          ctx.beginPath(); ctx.arc(preview.points[i].x, preview.points[i].y, 3.5, 0, Math.PI*2);
-          ctx.fillStyle='rgba(255,225,122,.85)'; ctx.fill();
-        }
         if(preview.hitS){
           ctx.beginPath(); ctx.arc(preview.hitS.x,preview.hitS.y,preview.hitS.r+5,0,Math.PI*2);
           ctx.strokeStyle='rgba(255,80,60,.7)'; ctx.lineWidth=2; ctx.stroke();
-        }
-        if(preview.bounce){
-          ctx.beginPath(); ctx.moveTo(preview.bounce.x1,preview.bounce.y1); ctx.lineTo(preview.bounce.x2,preview.bounce.y2);
-          ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=1.2; ctx.stroke();
         }
       }
 
