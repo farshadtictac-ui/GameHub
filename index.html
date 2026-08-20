@@ -135,8 +135,9 @@
       <p>Play together on one phone, or connect two phones over the internet.</p>
       <div class="lobby-choices">
         <button class="mainbtn" id="playLocalBtn">📱 Play on One Device</button>
-        <button class="mainbtn" id="createRoomBtn">➕ Create Room</button>
-        <button class="mainbtn ghost" id="showJoinBtn">🔑 Join Room</button>
+        <button class="mainbtn" id="quickMatchBtn">🎲 Quick Match (random opponent)</button>
+        <button class="mainbtn ghost" id="createRoomBtn">➕ Create Room (invite a friend)</button>
+        <button class="mainbtn ghost" id="showJoinBtn">🔑 Join Room (I have a code)</button>
       </div>
     </div>
     <div id="lobbyJoin" style="display:none;">
@@ -150,6 +151,11 @@
       <div class="code-display" id="roomCodeDisplay">----</div>
       <p id="lobbyWaitText">Waiting for your friend to join...</p>
       <div><span class="back-link" id="cancelWaiting">← Cancel</span></div>
+    </div>
+    <div id="lobbyQuickWait" style="display:none;">
+      <p>🎲 Looking for an opponent...</p>
+      <p style="font-size:12px;">This can take a moment if nobody else is online right now.</p>
+      <div><span class="back-link" id="cancelQuickWait">← Cancel</span></div>
     </div>
     <div class="net-status" id="netStatus"></div>
   </div>
@@ -270,18 +276,9 @@
     b.textContent = text; b.style.display = show ? 'block':'none';
   }
 
-  function openSocket(role, code){
-    const url = 'wss://'+SERVER_HOST+'/connect?role='+role+'&code='+code;
-    const ws = new WebSocket(url);
-    net.ws = ws; net.code = code;
-    ws.addEventListener('open', ()=>{
-      net.connected = true;
-      if(role==='host'){
-        document.getElementById('lobbyWaitText').textContent = 'Waiting for your friend to join...';
-      } else {
-        netStatus('Connected! Waiting for the game to start...');
-      }
-    });
+  function wireSocket(ws){
+    net.ws = ws;
+    ws.addEventListener('open', ()=>{ net.connected = true; });
     ws.addEventListener('message', (ev)=>{
       let msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
       handleNetMessage(msg);
@@ -290,23 +287,41 @@
     ws.addEventListener('error', ()=> onNetDisconnect(true));
   }
 
+  function openSocket(role, code){
+    const url = 'wss://'+SERVER_HOST+'/connect?role='+role+'&code='+code;
+    const ws = new WebSocket(url);
+    net.code = code;
+    wireSocket(ws);
+    ws.addEventListener('open', ()=>{
+      if(role==='host'){
+        document.getElementById('lobbyWaitText').textContent = 'Waiting for your friend to join...';
+      } else {
+        netStatus('Connected! Waiting for the game to start...');
+      }
+    });
+  }
+
+  function quickMatch(){
+    net.mode = 'pending';
+    document.getElementById('lobbyChoice').style.display='none';
+    document.getElementById('lobbyQuickWait').style.display='block';
+    const ws = new WebSocket('wss://'+SERVER_HOST+'/quickmatch');
+    wireSocket(ws);
+  }
+
   function onNetDisconnect(isError){
     if(net.mode==='local') return;
-    connBadge('🔴 Disconnected', true);
-    netStatus(isError ? 'Could not connect. Check the code and try again.' : 'Your friend disconnected.');
-    if(net.mode==='guest' || net.mode==='host'){
-      // return to lobby if this happens mid-connect / mid-game
-      setTimeout(()=>{
-        if(!net.connected) return; // avoid double-trigger
-        net.connected = false;
-        document.getElementById('lobbyOverlay').classList.add('show');
-        document.getElementById('lobbyChoice').style.display='block';
-        document.getElementById('lobbyJoin').style.display='none';
-        document.getElementById('lobbyWaiting').style.display='none';
-        connBadge('', false);
-      }, 50);
-    }
+    const wasConnected = net.connected;
     net.connected = false;
+    connBadge('🔴 Disconnected', true);
+    netStatus(isError ? 'Could not connect. Try again.' : (wasConnected ? 'Your friend disconnected.' : 'Could not connect. Try again.'));
+    document.getElementById('lobbyOverlay').classList.add('show');
+    document.getElementById('lobbyChoice').style.display='block';
+    document.getElementById('lobbyJoin').style.display='none';
+    document.getElementById('lobbyWaiting').style.display='none';
+    document.getElementById('lobbyQuickWait').style.display='none';
+    connBadge('', false);
+    net.mode='local';
   }
 
   async function createRoom(){
@@ -335,6 +350,25 @@
   }
 
   function handleNetMessage(msg){
+    if(msg.type==='waiting'){
+      // quick match: still looking for an opponent, nothing to do yet
+      return;
+    }
+    if(msg.type==='matched'){
+      // quick match: paired with a random opponent
+      net.mode = msg.team==='red' ? 'host' : 'guest';
+      net.myTeam = msg.team;
+      document.getElementById('lobbyQuickWait').style.display='none';
+      if(net.mode==='host'){
+        document.getElementById('lobbyOverlay').classList.remove('show');
+        fullReset();
+        broadcastState();
+        connBadge('🟢 Connected', true);
+      } else {
+        netStatus('Opponent found! Starting game...');
+      }
+      return;
+    }
     if(msg.type==='opponent_joined'){
       // Host: the guest has connected, start the game and begin broadcasting
       connBadge('🟢 Connected', true);
@@ -1115,6 +1149,14 @@
     fullReset();
   });
   document.getElementById('createRoomBtn').addEventListener('click', createRoom);
+  document.getElementById('quickMatchBtn').addEventListener('click', quickMatch);
+  document.getElementById('cancelQuickWait').addEventListener('click', ()=>{
+    if(net.ws) net.ws.close();
+    net.mode='local'; net.connected=false;
+    document.getElementById('lobbyQuickWait').style.display='none';
+    document.getElementById('lobbyChoice').style.display='block';
+    netStatus('');
+  });
   document.getElementById('showJoinBtn').addEventListener('click', ()=>{
     document.getElementById('lobbyChoice').style.display='none';
     document.getElementById('lobbyJoin').style.display='block';
