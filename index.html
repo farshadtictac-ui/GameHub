@@ -104,9 +104,56 @@
     100%{ transform:translateY(360px) rotate(360deg); opacity:0; }
   }
   .confetti-piece{ position:absolute; top:0; font-size:18px; animation:confetti-fall linear forwards; pointer-events:none; }
+
+  .lobby-choices{ display:flex; flex-direction:column; gap:10px; margin-top:6px; }
+  .lobby-choices button.mainbtn{ width:100%; padding:11px 16px; }
+  .code-display{
+    font-size:34px; font-weight:bold; letter-spacing:6px; color:var(--brass);
+    background:#1a1108; border-radius:10px; padding:10px 14px; margin:14px 0;
+  }
+  .join-input{
+    width:100%; font-family:inherit; font-size:22px; letter-spacing:6px; text-align:center;
+    padding:10px; border-radius:8px; border:2px solid var(--brass); background:#1a1108;
+    color:var(--paper); margin-bottom:12px;
+  }
+  .net-status{ font-size:12px; color:#c9b89a; margin-top:10px; min-height:16px; }
+  .back-link{ font-size:12px; color:var(--brass); text-decoration:underline; cursor:pointer; margin-top:14px; display:inline-block; }
+  .conn-badge{
+    position:fixed; top:8px; right:10px; z-index:15; font-size:11px; padding:4px 9px;
+    border-radius:12px; background:rgba(0,0,0,.5); border:1px solid var(--brass); color:var(--paper); display:none;
+  }
 </style>
 </head>
 <body>
+
+<div class="conn-badge" id="connBadge">🟢 Connected</div>
+
+<div class="overlay show" id="lobbyOverlay">
+  <div class="panel">
+    <h2>⚔️ Soldier Wars ⚔️</h2>
+    <div id="lobbyChoice">
+      <p>Play together on one phone, or connect two phones over the internet.</p>
+      <div class="lobby-choices">
+        <button class="mainbtn" id="playLocalBtn">📱 Play on One Device</button>
+        <button class="mainbtn" id="createRoomBtn">➕ Create Room</button>
+        <button class="mainbtn ghost" id="showJoinBtn">🔑 Join Room</button>
+      </div>
+    </div>
+    <div id="lobbyJoin" style="display:none;">
+      <p>Enter the 4-digit code your friend shared with you</p>
+      <input class="join-input" id="joinCodeInput" maxlength="4" inputmode="numeric" placeholder="0000">
+      <button class="mainbtn" id="joinRoomBtn" style="width:100%;">Join</button>
+      <div><span class="back-link" id="backFromJoin">← Back</span></div>
+    </div>
+    <div id="lobbyWaiting" style="display:none;">
+      <p>Share this code with your friend:</p>
+      <div class="code-display" id="roomCodeDisplay">----</div>
+      <p id="lobbyWaitText">Waiting for your friend to join...</p>
+      <div><span class="back-link" id="cancelWaiting">← Cancel</span></div>
+    </div>
+    <div class="net-status" id="netStatus"></div>
+  </div>
+</div>
 
 <h1>⚔️ Soldier Wars ⚔️</h1>
 <div class="sub" id="subtitle">Red goes first — place your soldiers in your zone</div>
@@ -209,6 +256,189 @@
   let rewardCycleIdx = { red:0, blue:0 };
   let pendingReward = { red:null, blue:null };
   let winsCount = { red:0, blue:0 };
+
+  // ---------- multiplayer networking ----------
+  const SERVER_HOST = 'soldier-wars-server.farshad-tictac.workers.dev';
+  const net = {
+    ws:null, mode:'local', /* 'local' | 'host' | 'guest' */
+    myTeam:null, connected:false, code:null
+  };
+
+  function netStatus(msg){ document.getElementById('netStatus').textContent = msg || ''; }
+  function connBadge(text, show){
+    const b = document.getElementById('connBadge');
+    b.textContent = text; b.style.display = show ? 'block':'none';
+  }
+
+  function openSocket(role, code){
+    const url = 'wss://'+SERVER_HOST+'/connect?role='+role+'&code='+code;
+    const ws = new WebSocket(url);
+    net.ws = ws; net.code = code;
+    ws.addEventListener('open', ()=>{
+      net.connected = true;
+      if(role==='host'){
+        document.getElementById('lobbyWaitText').textContent = 'Waiting for your friend to join...';
+      } else {
+        netStatus('Connected! Waiting for the game to start...');
+      }
+    });
+    ws.addEventListener('message', (ev)=>{
+      let msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
+      handleNetMessage(msg);
+    });
+    ws.addEventListener('close', ()=> onNetDisconnect());
+    ws.addEventListener('error', ()=> onNetDisconnect(true));
+  }
+
+  function onNetDisconnect(isError){
+    if(net.mode==='local') return;
+    connBadge('🔴 Disconnected', true);
+    netStatus(isError ? 'Could not connect. Check the code and try again.' : 'Your friend disconnected.');
+    if(net.mode==='guest' || net.mode==='host'){
+      // return to lobby if this happens mid-connect / mid-game
+      setTimeout(()=>{
+        if(!net.connected) return; // avoid double-trigger
+        net.connected = false;
+        document.getElementById('lobbyOverlay').classList.add('show');
+        document.getElementById('lobbyChoice').style.display='block';
+        document.getElementById('lobbyJoin').style.display='none';
+        document.getElementById('lobbyWaiting').style.display='none';
+        connBadge('', false);
+      }, 50);
+    }
+    net.connected = false;
+  }
+
+  async function createRoom(){
+    netStatus('Creating room...');
+    try{
+      const res = await fetch('https://'+SERVER_HOST+'/create');
+      const data = await res.json();
+      if(!data.code){ netStatus('Could not create a room. Try again.'); return; }
+      net.mode='host'; net.myTeam='red';
+      document.getElementById('roomCodeDisplay').textContent = data.code;
+      document.getElementById('lobbyChoice').style.display='none';
+      document.getElementById('lobbyWaiting').style.display='block';
+      openSocket('host', data.code);
+    }catch(e){ netStatus('Network error. Check your connection.'); }
+  }
+
+  function joinRoom(code){
+    if(!/^\d{4}$/.test(code)){ netStatus('Enter the 4-digit code.'); return; }
+    net.mode='guest'; net.myTeam='blue';
+    netStatus('Connecting...');
+    openSocket('guest', code);
+  }
+
+  function send(obj){
+    if(net.ws && net.ws.readyState===WebSocket.OPEN) net.ws.send(JSON.stringify(obj));
+  }
+
+  function handleNetMessage(msg){
+    if(msg.type==='opponent_joined'){
+      // Host: the guest has connected, start the game and begin broadcasting
+      connBadge('🟢 Connected', true);
+      document.getElementById('lobbyOverlay').classList.remove('show');
+      fullReset();
+      broadcastState();
+      return;
+    }
+    if(msg.type==='opponent_left'){
+      onNetDisconnect();
+      return;
+    }
+    if(msg.type==='state'){
+      applyState(msg);
+      if(net.mode==='guest'){
+        connBadge('🟢 Connected', true);
+        document.getElementById('lobbyOverlay').classList.remove('show');
+      }
+      return;
+    }
+    // Guest -> Host action messages (only host acts on these)
+    if(net.mode!=='host') return;
+    if(msg.type==='guestPlace') hostHandleGuestPlace(msg.tier, msg.x, msg.y);
+    else if(msg.type==='guestRemove') hostHandleGuestRemove(msg.x, msg.y);
+    else if(msg.type==='guestAutoPlace') hostHandleGuestAutoPlace();
+    else if(msg.type==='guestConfirm') hostHandleGuestConfirm();
+    else if(msg.type==='guestThrow') hostHandleGuestThrow(msg.vx, msg.vy);
+    else if(msg.type==='guestRestart'){ fullReset(); broadcastState(); }
+  }
+
+  function broadcastState(){
+    if(net.mode!=='host' || !net.connected) return;
+    send({
+      type:'state',
+      phase, turn, pools,
+      soldiers: soldiers.map(s=>({x:s.x,y:s.y,r:s.r,ring:s.ring,tier:s.tier,hp:s.hp,maxHp:s.maxHp,team:s.team,alive:s.alive})),
+      balls: balls.map(b=>({x:b.x,y:b.y,team:b.team,trail:b.trail})),
+      pendingReward, hitCounter, winsCount,
+      subtitle: document.getElementById('subtitle').textContent,
+      hint: document.getElementById('hint').textContent,
+      resultTitle: document.getElementById('resultTitle').textContent,
+      resultText: document.getElementById('resultText').textContent
+    });
+  }
+
+  let lastAppliedPhase = null;
+  function applyState(s){
+    phase=s.phase; turn=s.turn; pools=s.pools;
+    soldiers = s.soldiers; balls = s.balls;
+    if(phase==='battle'){ aimBall.x=LAUNCH[turn].x; aimBall.y=LAUNCH[turn].y; }
+    pendingReward=s.pendingReward; hitCounter=s.hitCounter; winsCount=s.winsCount;
+    document.getElementById('subtitle').textContent = s.subtitle;
+    setHint(s.hint);
+    document.getElementById('setupPanel').style.display = (phase==='setupRed'||phase==='setupBlue') ? 'block':'none';
+    document.getElementById('winsRed').textContent = winsCount.red;
+    document.getElementById('winsBlue').textContent = winsCount.blue;
+    if(phase==='gameover' && lastAppliedPhase!=='gameover'){
+      document.getElementById('resultTitle').textContent = s.resultTitle;
+      document.getElementById('resultText').textContent = s.resultText;
+      document.getElementById('overlay').classList.add('show');
+      sfxWin(); launchConfetti();
+    } else if(phase!=='gameover'){
+      document.getElementById('overlay').classList.remove('show');
+    }
+    lastAppliedPhase = phase;
+    refreshTierButtons(); updateHUD(); updateRewardBadge();
+  }
+
+  // ---- host-side handlers for actions relayed from the guest (blue) ----
+  function hostHandleGuestPlace(tier, x, y){
+    if(phase!=='setupBlue') return;
+    if(pools.blue[tier]<=0) return;
+    const p = {x,y};
+    if(!inZone(p, BLUEZONE)) return;
+    const r = TIERS[tier].r;
+    if(!validPlacement(p, r)) return;
+    placeSoldier('blue', tier, p);
+    broadcastState();
+  }
+  function hostHandleGuestRemove(x, y){
+    if(phase!=='setupBlue') return;
+    const p = {x,y};
+    for(let i=soldiers.length-1;i>=0;i--){
+      const s = soldiers[i];
+      if(s.team==='blue' && dist(p,s)<=s.r+6){
+        pools.blue[s.tier]++; soldiers.splice(i,1);
+        broadcastState(); return;
+      }
+    }
+  }
+  function hostHandleGuestAutoPlace(){
+    if(phase!=='setupBlue') return;
+    autoPlaceRemaining('blue', BLUEZONE);
+    broadcastState();
+  }
+  function hostHandleGuestConfirm(){
+    if(phase!=='setupBlue') return;
+    startBattle();
+    broadcastState();
+  }
+  function hostHandleGuestThrow(vx, vy){
+    if(phase!=='battle' || turn!=='blue' || balls.length>0 || awaitingSecondThrow) return;
+    performThrow('blue', vx, vy);
+  }
 
   // ---------- audio (synthesized, no external files) ----------
   let audioCtx = null;
@@ -381,17 +611,25 @@
     }
   }
   document.getElementById('autoPlaceBtn').addEventListener('click', ()=>{
-    if(phase==='setupRed') autoPlaceRemaining('red', REDZONE);
-    else if(phase==='setupBlue') autoPlaceRemaining('blue', BLUEZONE);
+    const team = phase==='setupRed' ? 'red' : phase==='setupBlue' ? 'blue' : null;
+    if(!team || !myTurnToControl(team)) return;
+    if(net.mode==='guest'){ send({type:'guestAutoPlace'}); return; }
+    autoPlaceRemaining(team, team==='red'?REDZONE:BLUEZONE);
+    broadcastState();
   });
   document.getElementById('confirmSetupBtn').addEventListener('click', ()=>{
+    const team = phase==='setupRed' ? 'red' : phase==='setupBlue' ? 'blue' : null;
+    if(!team || !myTurnToControl(team)) return;
+    if(net.mode==='guest'){ send({type:'guestConfirm'}); return; }
     if(phase==='setupRed'){
       phase='setupBlue'; selectedTier='heavy';
       document.getElementById('subtitle').textContent = "Now it's Blue's turn to place soldiers in their zone";
       setHint('Tap your zone (top of the board) to place the selected soldier');
       refreshTierButtons(); updateHUD();
+      broadcastState();
     } else if(phase==='setupBlue'){
       startBattle();
+      broadcastState();
     }
   });
 
@@ -431,6 +669,7 @@
       document.getElementById('overlay').classList.add('show');
       sfxWin();
       launchConfetti();
+      broadcastState();
       return true;
     }
     return false;
@@ -465,6 +704,7 @@
       aimBall.x=LAUNCH[turn].x; aimBall.y=LAUNCH[turn].y;
       updateHUD(); updateRewardBadge();
       setHint((turn==='red'?'Red':'Blue')+"'s turn — drag the ball to throw");
+      broadcastState();
     },550);
   }
 
@@ -526,46 +766,51 @@
   window.addEventListener('mouseup', onUp);
   window.addEventListener('touchend', onUp);
 
+  function myTurnToControl(team){
+    if(net.mode==='local') return true;
+    return net.myTeam===team;
+  }
+
   function onDown(e){
+    if(net.mode!=='local' && !net.connected) return;
     const p = getPos(e);
     if(phase==='setupRed' || phase==='setupBlue'){
       const team = phase==='setupRed'?'red':'blue';
       const zone = phase==='setupRed'?REDZONE:BLUEZONE;
+      if(!myTurnToControl(team)) return;
+
       for(let i=soldiers.length-1;i>=0;i--){
         const s=soldiers[i];
         if(s.team===team && dist(p,s)<=s.r+6){
+          if(net.mode==='guest'){ send({type:'guestRemove', x:p.x, y:p.y}); e.preventDefault(); return; }
           pools[team][s.tier]++; selectedTier=s.tier; soldiers.splice(i,1);
-          refreshTierButtons(); updateHUD(); e.preventDefault(); return;
+          refreshTierButtons(); updateHUD(); broadcastState();
+          e.preventDefault(); return;
         }
       }
       if(pools[team][selectedTier]<=0) return;
       if(!inZone(p, zone)){ setHint('You can only place soldiers inside your own zone'); return; }
       const r = TIERS[selectedTier].r;
       if(!validPlacement(p, r)){ setHint('Too close to another soldier'); return; }
+
+      if(net.mode==='guest'){
+        send({type:'guestPlace', tier:selectedTier, x:p.x, y:p.y});
+        e.preventDefault(); return;
+      }
       placeSoldier(team, selectedTier, p);
       setHint('Soldier placed. Keep going or tap "Confirm & Continue"');
+      broadcastState();
       e.preventDefault(); return;
     }
     if(phase!=='battle' || balls.length>0 || awaitingSecondThrow) return;
+    if(!myTurnToControl(turn)) return;
     if(dist(p, aimBall) <= BALL_R+24){
       dragging=true; dragStart={x:aimBall.x,y:aimBall.y}; dragCurrent=p;
       e.preventDefault();
     }
   }
   function onMove(e){ if(!dragging) return; dragCurrent = getPos(e); e.preventDefault(); }
-  function onUp(){
-    if(!dragging) return;
-    dragging=false;
-    let dx=dragStart.x-dragCurrent.x, dy=dragStart.y-dragCurrent.y;
-    let d=Math.hypot(dx,dy);
-    if(d<8){ dragCurrent=null; return; }
-    d=Math.min(d,MAX_DRAG);
-    const power=d/MAX_DRAG;
-    const angle=Math.atan2(dy,dx);
-    const vx=Math.cos(angle)*power*MAX_SPEED;
-    const vy=Math.sin(angle)*power*MAX_SPEED;
-
-    const team = turn;
+  function performThrow(team, vx, vy){
     const reward = pendingReward[team];
     pendingReward[team] = null;
     updateRewardBadge();
@@ -586,12 +831,36 @@
       setTimeout(()=>{
         launchBall(team, vx, vy, 1);
         awaitingSecondThrow = false;
+        broadcastState();
       }, 300);
       setHint('A second ball is on its way...');
     } else {
       launchBall(team, vx, vy, 1);
       setHint('...');
     }
+    broadcastState();
+  }
+
+  function onUp(){
+    if(!dragging) return;
+    dragging=false;
+    let dx=dragStart.x-dragCurrent.x, dy=dragStart.y-dragCurrent.y;
+    let d=Math.hypot(dx,dy);
+    if(d<8){ dragCurrent=null; return; }
+    d=Math.min(d,MAX_DRAG);
+    const power=d/MAX_DRAG;
+    const angle=Math.atan2(dy,dx);
+    const vx=Math.cos(angle)*power*MAX_SPEED;
+    const vy=Math.sin(angle)*power*MAX_SPEED;
+
+    if(net.mode==='guest'){
+      send({type:'guestThrow', vx, vy});
+      setHint('Throw sent...');
+      dragCurrent=null;
+      return;
+    }
+
+    performThrow(turn, vx, vy);
     dragCurrent=null;
   }
 
@@ -635,11 +904,12 @@
   function tick(t){
     if(lastT===null) lastT=t;
     let dt=(t-lastT)/1000; dt=Math.min(dt,0.032); lastT=t;
-    if(phase==='battle') updateBalls(dt);
+    if(phase==='battle' && net.mode!=='guest') updateBalls(dt);
     updateSmoke(dt); updateParticles(dt); updateFloatTexts(dt); updateShake(dt);
     hitFlashes.forEach(f=>f.life-=dt);
     hitFlashes = hitFlashes.filter(f=>f.life>0);
     render();
+    if(net.mode==='host' && net.connected && phase==='battle' && balls.length>0) broadcastState();
     requestAnimationFrame(tick);
   }
 
@@ -830,10 +1100,41 @@
     refreshTierButtons(); updateHUD();
   }
 
-  document.getElementById('restartBtn').addEventListener('click', fullReset);
-  document.getElementById('playAgainBtn').addEventListener('click', fullReset);
+  function requestRestart(){
+    if(net.mode==='guest'){ send({type:'guestRestart'}); return; }
+    fullReset();
+    if(net.mode==='host') broadcastState();
+  }
+  document.getElementById('restartBtn').addEventListener('click', requestRestart);
+  document.getElementById('playAgainBtn').addEventListener('click', requestRestart);
 
-  fullReset();
+  // ---------- lobby wiring ----------
+  document.getElementById('playLocalBtn').addEventListener('click', ()=>{
+    net.mode='local';
+    document.getElementById('lobbyOverlay').classList.remove('show');
+    fullReset();
+  });
+  document.getElementById('createRoomBtn').addEventListener('click', createRoom);
+  document.getElementById('showJoinBtn').addEventListener('click', ()=>{
+    document.getElementById('lobbyChoice').style.display='none';
+    document.getElementById('lobbyJoin').style.display='block';
+  });
+  document.getElementById('backFromJoin').addEventListener('click', ()=>{
+    document.getElementById('lobbyJoin').style.display='none';
+    document.getElementById('lobbyChoice').style.display='block';
+    netStatus('');
+  });
+  document.getElementById('cancelWaiting').addEventListener('click', ()=>{
+    if(net.ws) net.ws.close();
+    net.mode='local'; net.connected=false;
+    document.getElementById('lobbyWaiting').style.display='none';
+    document.getElementById('lobbyChoice').style.display='block';
+    netStatus('');
+  });
+  document.getElementById('joinRoomBtn').addEventListener('click', ()=>{
+    joinRoom(document.getElementById('joinCodeInput').value.trim());
+  });
+
   requestAnimationFrame(tick);
 })();
 </script>
