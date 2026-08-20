@@ -122,9 +122,31 @@
     position:fixed; top:8px; right:10px; z-index:15; font-size:11px; padding:4px 9px;
     border-radius:12px; background:rgba(0,0,0,.5); border:1px solid var(--brass); color:var(--paper); display:none;
   }
+  .name-input{
+    width:100%; font-family:inherit; font-size:15px; text-align:center;
+    padding:9px; border-radius:8px; border:2px solid var(--brass); background:#1a1108;
+    color:var(--paper); margin-bottom:12px;
+  }
+  .howto-list{ text-align:right; font-size:13px; line-height:2; color:#e5d8bf; margin:0 0 16px; padding-right:4px; }
+  .howto-list li{ margin-bottom:6px; }
+  .reconnect-banner{
+    position:fixed; top:0; left:0; right:0; z-index:25; display:none;
+    background:linear-gradient(180deg,#7a2e18,#4a1a0e); color:#ffe17a;
+    text-align:center; font-size:13px; font-weight:bold; padding:10px 14px;
+    box-shadow:0 3px 10px rgba(0,0,0,.5);
+  }
+  .reconnect-banner.show{ display:block; }
+  .reconnect-banner .back-link{ color:#ffe17a; margin-top:6px; }
+  @keyframes pulse-op{ 0%,100%{opacity:1;} 50%{opacity:.5;} }
+  .reconnect-banner .dot3{ animation:pulse-op 1.2s infinite; }
 </style>
 </head>
 <body>
+
+<div class="reconnect-banner" id="reconnectBanner">
+  <span id="reconnectText">🔄 Connection lost. Reconnecting<span class="dot3">...</span></span>
+  <div><span class="back-link" id="giveUpReconnect">← Return to Menu</span></div>
+</div>
 
 <div class="conn-badge" id="connBadge">🟢 Connected</div>
 
@@ -133,11 +155,13 @@
     <h2>⚔️ Soldier Wars ⚔️</h2>
     <div id="lobbyChoice">
       <p>Play together on one phone, or connect two phones over the internet.</p>
+      <input class="name-input" id="playerNameInput" maxlength="16" placeholder="Your name">
       <div class="lobby-choices">
         <button class="mainbtn" id="playLocalBtn">📱 Play on One Device</button>
         <button class="mainbtn" id="quickMatchBtn">🎲 Quick Match (random opponent)</button>
         <button class="mainbtn ghost" id="createRoomBtn">➕ Create Room (invite a friend)</button>
         <button class="mainbtn ghost" id="showJoinBtn">🔑 Join Room (I have a code)</button>
+        <button class="mainbtn ghost" id="showHowToBtn">❓ How to Play</button>
       </div>
     </div>
     <div id="lobbyJoin" style="display:none;">
@@ -161,6 +185,20 @@
   </div>
 </div>
 
+<div class="overlay" id="howToOverlay">
+  <div class="panel">
+    <h2>❓ How to Play</h2>
+    <ol class="howto-list">
+      <li>Place your soldiers inside your own zone — choose Heavy (3 hits), Medium (2 hits), or Light (1 hit).</li>
+      <li>Tap "Confirm & Continue" once you're happy with your lineup.</li>
+      <li>On your turn, drag the yellow ball backward to aim, then release to throw.</li>
+      <li>Knock down all of your opponent's soldiers to win the round.</li>
+      <li>Every 3 hits earns you a random power-up for your next throw.</li>
+    </ol>
+    <button class="mainbtn" id="closeHowToBtn">Got it</button>
+  </div>
+</div>
+
 <h1>⚔️ Soldier Wars ⚔️</h1>
 <div class="sub" id="subtitle">Red goes first — place your soldiers in your zone</div>
 
@@ -171,8 +209,8 @@
 </div>
 
 <div class="wins-bar" id="winsBar">
-  <span>🔴 Red Wins: <b id="winsRed">0</b></span>
-  <span>🔵 Blue Wins: <b id="winsBlue">0</b></span>
+  <span>🔴 <span id="redName">Red</span>: <b id="winsRed">0</b></span>
+  <span>🔵 <span id="blueName">Blue</span>: <b id="winsBlue">0</b></span>
 </div>
 
 <div class="reward-badge" id="rewardBadge"></div>
@@ -224,7 +262,7 @@
 
   const BALL_R = 10;
   const MAX_DRAG = 110;
-  const MAX_SPEED = 960;
+  const MAX_SPEED = 1150;
   const FRICTION = 220;
   const HIT_RESTITUTION = 0.55;
   const HIT_THRESHOLD = 110;
@@ -265,20 +303,56 @@
 
   // ---------- multiplayer networking ----------
   const SERVER_HOST = 'soldier-wars-server.farshad-tictac.workers.dev';
+  const tgUser = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) || null;
   const net = {
-    ws:null, mode:'local', /* 'local' | 'host' | 'guest' */
-    myTeam:null, connected:false, code:null
+    ws:null, mode:'local', /* 'local' | 'host' | 'guest' | 'pending' */
+    role:null, myTeam:null, connected:false, code:null,
+    myName:'', opponentName:'', gameStarted:false,
+    reconnectAttempts:0, reconnectTimer:null, manualExit:false
   };
+
+  if(tgUser && tgUser.first_name){
+    document.getElementById('playerNameInput').value = tgUser.first_name;
+  }
 
   function netStatus(msg){ document.getElementById('netStatus').textContent = msg || ''; }
   function connBadge(text, show){
     const b = document.getElementById('connBadge');
     b.textContent = text; b.style.display = show ? 'block':'none';
   }
+  function updateNameLabels(){
+    const myLabel = net.myName || (net.myTeam==='red' ? 'Red' : 'Blue');
+    const oppLabel = net.opponentName || (net.myTeam==='red' ? 'Blue' : 'Red');
+    if(net.myTeam==='red'){
+      document.getElementById('redName').textContent = myLabel;
+      document.getElementById('blueName').textContent = oppLabel;
+    } else if(net.myTeam==='blue'){
+      document.getElementById('blueName').textContent = myLabel;
+      document.getElementById('redName').textContent = oppLabel;
+    } else {
+      document.getElementById('redName').textContent = 'Red';
+      document.getElementById('blueName').textContent = 'Blue';
+    }
+  }
+  function sendHello(){
+    send({type:'hello', name: net.myName || 'Player'});
+  }
+  function showReconnectBanner(text){
+    document.getElementById('reconnectText').innerHTML = text+'<span class="dot3">...</span>';
+    document.getElementById('reconnectBanner').classList.add('show');
+  }
+  function hideReconnectBanner(){
+    document.getElementById('reconnectBanner').classList.remove('show');
+  }
 
   function wireSocket(ws){
     net.ws = ws;
-    ws.addEventListener('open', ()=>{ net.connected = true; });
+    ws.addEventListener('open', ()=>{
+      net.connected = true;
+      net.reconnectAttempts = 0;
+      if(net.reconnectTimer){ clearTimeout(net.reconnectTimer); net.reconnectTimer=null; }
+      hideReconnectBanner();
+    });
     ws.addEventListener('message', (ev)=>{
       let msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
       handleNetMessage(msg);
@@ -288,6 +362,7 @@
   }
 
   function openSocket(role, code){
+    net.role = role;
     const url = 'wss://'+SERVER_HOST+'/connect?role='+role+'&code='+code;
     const ws = new WebSocket(url);
     net.code = code;
@@ -297,34 +372,83 @@
         document.getElementById('lobbyWaitText').textContent = 'Waiting for your friend to join...';
       } else {
         netStatus('Connected! Waiting for the game to start...');
+        sendHello();
       }
     });
   }
 
   function quickMatch(){
-    net.mode = 'pending';
+    net.mode = 'pending'; net.role=null; net.code=null;
     document.getElementById('lobbyChoice').style.display='none';
     document.getElementById('lobbyQuickWait').style.display='block';
     const ws = new WebSocket('wss://'+SERVER_HOST+'/quickmatch');
     wireSocket(ws);
   }
 
+  function attemptReconnect(){
+    if(!net.code || !net.role){
+      showReconnectBanner('🔴 Connection lost');
+      return;
+    }
+    net.reconnectAttempts++;
+    if(net.reconnectAttempts > 20){
+      showReconnectBanner('🔴 Could not reconnect');
+      return;
+    }
+    showReconnectBanner('🔄 Reconnecting (attempt '+net.reconnectAttempts+')');
+    net.reconnectTimer = setTimeout(()=>{
+      openSocket(net.role, net.code);
+      if(net.role==='guest'){
+        // ask host to resend the latest state once we're back
+        setTimeout(()=>{ if(net.connected) send({type:'requestState'}); }, 400);
+      }
+    }, 1800);
+  }
+
   function onNetDisconnect(isError){
-    if(net.mode==='local') return;
+    if(net.mode==='local' || net.manualExit) return;
     const wasConnected = net.connected;
     net.connected = false;
+
+    if(!net.gameStarted){
+      // still in the lobby / waiting-to-start phase — safe to just reset the lobby UI
+      connBadge('', false);
+      netStatus(isError ? 'Could not connect. Try again.' : 'Connection closed.');
+      document.getElementById('lobbyOverlay').classList.add('show');
+      document.getElementById('lobbyChoice').style.display='block';
+      document.getElementById('lobbyJoin').style.display='none';
+      document.getElementById('lobbyWaiting').style.display='none';
+      document.getElementById('lobbyQuickWait').style.display='none';
+      net.mode='local';
+      return;
+    }
+
+    // A game is already in progress — do NOT leave it. Try to reconnect instead.
     connBadge('🔴 Disconnected', true);
-    netStatus(isError ? 'Could not connect. Try again.' : (wasConnected ? 'Your friend disconnected.' : 'Could not connect. Try again.'));
+    if(net.code){
+      attemptReconnect();
+    } else {
+      showReconnectBanner('🔴 Connection lost');
+    }
+  }
+
+  document.getElementById('giveUpReconnect').addEventListener('click', ()=>{
+    net.manualExit = true;
+    if(net.reconnectTimer) clearTimeout(net.reconnectTimer);
+    if(net.ws) net.ws.close();
+    net.mode='local'; net.connected=false; net.gameStarted=false; net.manualExit=false;
+    hideReconnectBanner(); connBadge('', false);
+    document.getElementById('overlay').classList.remove('show');
     document.getElementById('lobbyOverlay').classList.add('show');
     document.getElementById('lobbyChoice').style.display='block';
     document.getElementById('lobbyJoin').style.display='none';
     document.getElementById('lobbyWaiting').style.display='none';
     document.getElementById('lobbyQuickWait').style.display='none';
-    connBadge('', false);
-    net.mode='local';
-  }
+    netStatus('');
+  });
 
   async function createRoom(){
+    net.myName = document.getElementById('playerNameInput').value.trim();
     netStatus('Creating room...');
     try{
       const res = await fetch('https://'+SERVER_HOST+'/create');
@@ -340,6 +464,7 @@
 
   function joinRoom(code){
     if(!/^\d{4}$/.test(code)){ netStatus('Enter the 4-digit code.'); return; }
+    net.myName = document.getElementById('playerNameInput').value.trim();
     net.mode='guest'; net.myTeam='blue';
     netStatus('Connecting...');
     openSocket('guest', code);
@@ -351,40 +476,58 @@
 
   function handleNetMessage(msg){
     if(msg.type==='waiting'){
-      // quick match: still looking for an opponent, nothing to do yet
       return;
     }
     if(msg.type==='matched'){
-      // quick match: paired with a random opponent
+      net.myName = document.getElementById('playerNameInput').value.trim();
       net.mode = msg.team==='red' ? 'host' : 'guest';
+      net.role = net.mode;
       net.myTeam = msg.team;
       document.getElementById('lobbyQuickWait').style.display='none';
       if(net.mode==='host'){
         document.getElementById('lobbyOverlay').classList.remove('show');
-        fullReset();
+        fullReset(); net.gameStarted = true;
+        sendHello(); updateNameLabels();
         broadcastState();
         connBadge('🟢 Connected', true);
       } else {
         netStatus('Opponent found! Starting game...');
+        sendHello(); updateNameLabels();
       }
       return;
     }
+    if(msg.type==='hello'){
+      net.opponentName = msg.name || '';
+      updateNameLabels();
+      return;
+    }
+    if(msg.type==='requestState'){
+      if(net.mode==='host') broadcastState();
+      return;
+    }
     if(msg.type==='opponent_joined'){
-      // Host: the guest has connected, start the game and begin broadcasting
       connBadge('🟢 Connected', true);
+      hideReconnectBanner();
       document.getElementById('lobbyOverlay').classList.remove('show');
-      fullReset();
-      broadcastState();
+      if(net.mode==='host'){
+        if(!net.gameStarted){ fullReset(); net.gameStarted = true; }
+        sendHello();
+        broadcastState();
+      } else {
+        sendHello();
+      }
       return;
     }
     if(msg.type==='opponent_left'){
-      onNetDisconnect();
+      showReconnectBanner('⏳ Waiting for your friend to reconnect');
       return;
     }
     if(msg.type==='state'){
       applyState(msg);
+      net.gameStarted = true;
       if(net.mode==='guest'){
         connBadge('🟢 Connected', true);
+        hideReconnectBanner();
         document.getElementById('lobbyOverlay').classList.remove('show');
       }
       return;
@@ -1069,7 +1212,12 @@
     ctx.drawImage(bg,0,0);
     drawSmoke();
 
-    soldiers.forEach(s=>{ if(s.alive) drawSoldier(s); });
+    soldiers.forEach(s=>{
+      if(!s.alive) return;
+      const fadeOwn = phase==='battle' && dragging && s.team===turn;
+      if(fadeOwn){ ctx.save(); ctx.globalAlpha = 0.15; drawSoldier(s); ctx.restore(); }
+      else drawSoldier(s);
+    });
 
     hitFlashes.forEach(f=>{
       ctx.beginPath();
@@ -1144,9 +1292,16 @@
 
   // ---------- lobby wiring ----------
   document.getElementById('playLocalBtn').addEventListener('click', ()=>{
-    net.mode='local';
+    net.mode='local'; net.myTeam=null; net.gameStarted=false;
     document.getElementById('lobbyOverlay').classList.remove('show');
+    updateNameLabels();
     fullReset();
+  });
+  document.getElementById('showHowToBtn').addEventListener('click', ()=>{
+    document.getElementById('howToOverlay').classList.add('show');
+  });
+  document.getElementById('closeHowToBtn').addEventListener('click', ()=>{
+    document.getElementById('howToOverlay').classList.remove('show');
   });
   document.getElementById('createRoomBtn').addEventListener('click', createRoom);
   document.getElementById('quickMatchBtn').addEventListener('click', quickMatch);
