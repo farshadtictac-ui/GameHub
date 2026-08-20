@@ -267,6 +267,7 @@
   const HIT_RESTITUTION = 0.55;
   const HIT_THRESHOLD = 110;
   const STOP_SPEED = 16;
+  const WALL_RESTITUTION = 0.82;
 
   const TIERS = {
     heavy:  { hp:3, r:14, ring:'#e8c766' },
@@ -637,6 +638,7 @@
     osc.start(t0); osc.stop(t0+dur);
   }
   function sfxThrow(){ beep(230,0.1,'triangle',0.14); beep(360,0.07,'triangle',0.1,0.03); }
+  function sfxWallBounce(){ beep(480,0.05,'triangle',0.08); }
   function sfxHit(){ beep(150,0.08,'square',0.16); }
   function sfxKill(){ beep(95,0.22,'sawtooth',0.24); beep(60,0.28,'square',0.18,0.05); if(navigator.vibrate) navigator.vibrate([40,30,60]); }
   function sfxPickup(){ beep(523,0.09,'sine',0.2); beep(659,0.09,'sine',0.2,0.09); beep(784,0.14,'sine',0.22,0.18); }
@@ -673,6 +675,34 @@
     b.strokeStyle='rgba(255,230,150,.35)'; b.lineWidth=2; b.setLineDash([6,6]);
     b.strokeRect(FIELD.left,FIELD.top,FIELD.right-FIELD.left,FIELD.bottom-FIELD.top);
     b.setLineDash([]);
+
+    // solid side walls (ball bounces off these)
+    const wallW = 9;
+    for(const wx of [FIELD.left, FIELD.right]){
+      const wg = b.createLinearGradient(wx-wallW,0,wx+wallW,0);
+      wg.addColorStop(0,'rgba(90,70,40,0)'); wg.addColorStop(0.5,'rgba(140,110,60,.9)'); wg.addColorStop(1,'rgba(90,70,40,0)');
+      b.fillStyle = wg;
+      b.fillRect(wx-wallW, FIELD.top, wallW*2, FIELD.bottom-FIELD.top);
+      for(let y=FIELD.top+6; y<FIELD.bottom; y+=16){
+        b.beginPath(); b.ellipse(wx, y, 6, 4.5, Math.PI/2, 0, Math.PI*2);
+        b.fillStyle='rgba(160,130,75,.55)'; b.fill();
+        b.beginPath(); b.ellipse(wx-1.5, y-1.5, 2.5, 1.8, Math.PI/2, 0, Math.PI*2);
+        b.fillStyle='rgba(255,245,210,.18)'; b.fill();
+      }
+    }
+    // open top/bottom ends — soft fade + outward chevrons hinting balls can exit here
+    for(const oy of [FIELD.top, FIELD.bottom]){
+      const dir = oy===FIELD.top ? -1 : 1;
+      const og = b.createLinearGradient(0,oy,0,oy+dir*26);
+      og.addColorStop(0,'rgba(255,255,255,.10)'); og.addColorStop(1,'rgba(255,255,255,0)');
+      b.fillStyle = og;
+      b.fillRect(FIELD.left,Math.min(oy,oy+dir*26),FIELD.right-FIELD.left,26);
+      for(let x=FIELD.left+22;x<FIELD.right;x+=34){
+        b.beginPath();
+        b.moveTo(x-6, oy+dir*4); b.lineTo(x, oy+dir*12); b.lineTo(x+6, oy+dir*4);
+        b.strokeStyle='rgba(255,255,255,.22)'; b.lineWidth=1.6; b.stroke();
+      }
+    }
     const midY=H/2;
     b.strokeStyle='rgba(210,210,210,.55)'; b.lineWidth=2;
     b.beginPath(); b.moveTo(FIELD.left,midY); b.lineTo(FIELD.right,midY); b.stroke();
@@ -1041,39 +1071,58 @@
     dragCurrent=null;
   }
 
-  // ---------- ray preview (aim line + first-bounce preview) ----------
+  // ---------- ray preview (aim line + wall-bounce-accurate path) ----------
   function raycastPreview(origin, dir, team){
-    let tBoundary = Infinity;
-    if(dir.x<-1e-6) tBoundary=Math.min(tBoundary,(FIELD.left-origin.x)/dir.x);
-    if(dir.x>1e-6)  tBoundary=Math.min(tBoundary,(FIELD.right-origin.x)/dir.x);
-    if(dir.y<-1e-6) tBoundary=Math.min(tBoundary,(FIELD.top-origin.y)/dir.y);
-    if(dir.y>1e-6)  tBoundary=Math.min(tBoundary,(FIELD.bottom-origin.y)/dir.y);
+    let ox=origin.x, oy=origin.y, dx=dir.x, dy=dir.y;
+    const points = [{x:ox,y:oy}];
+    let hitS=null, bounce=null;
 
-    let tSoldier=Infinity, hitS=null;
-    for(const s of soldiers){
-      if(!s.alive || s.team===team) continue;
-      const ocx=origin.x-s.x, ocy=origin.y-s.y;
-      const bq=2*(ocx*dir.x+ocy*dir.y);
-      const rr=(s.r+BALL_R);
-      const cq=(ocx*ocx+ocy*ocy)-rr*rr;
-      const disc=bq*bq-4*cq;
-      if(disc>=0){
-        const sq=Math.sqrt(disc);
-        const t1=(-bq-sq)/2;
-        if(t1>0 && t1<tSoldier){ tSoldier=t1; hitS=s; }
+    for(let iter=0; iter<6; iter++){
+      let tSoldier=Infinity, sHit=null;
+      for(const s of soldiers){
+        if(!s.alive || s.team===team) continue;
+        const ocx=ox-s.x, ocy=oy-s.y;
+        const bq=2*(ocx*dx+ocy*dy);
+        const rr=(s.r+BALL_R);
+        const cq=(ocx*ocx+ocy*ocy)-rr*rr;
+        const disc=bq*bq-4*cq;
+        if(disc>=0){
+          const sq=Math.sqrt(disc);
+          const t1=(-bq-sq)/2;
+          if(t1>1e-6 && t1<tSoldier){ tSoldier=t1; sHit=s; }
+        }
       }
+
+      let tWall=Infinity;
+      if(dx<-1e-6) tWall=Math.min(tWall,(FIELD.left-ox)/dx);
+      if(dx>1e-6)  tWall=Math.min(tWall,(FIELD.right-ox)/dx);
+
+      let tOpen=Infinity;
+      if(dy<-1e-6) tOpen=Math.min(tOpen,(FIELD.top-oy)/dy);
+      if(dy>1e-6)  tOpen=Math.min(tOpen,(FIELD.bottom-oy)/dy);
+
+      let tEnd = tOpen, branch='open';
+      if(tWall < tEnd){ tEnd=tWall; branch='wall'; }
+      if(tSoldier < tEnd){ tEnd=tSoldier; branch='soldier'; }
+      if(!isFinite(tEnd)) break;
+
+      const ex=ox+dx*tEnd, ey=oy+dy*tEnd;
+      points.push({x:ex,y:ey});
+
+      if(branch==='soldier'){
+        hitS = sHit;
+        let ux=(ex-sHit.x), uy=(ey-sHit.y);
+        const nlen=Math.hypot(ux,uy)||1; ux/=nlen; uy/=nlen;
+        const dDotN = dx*ux+dy*uy;
+        const rx = dx-2*dDotN*ux, ry = dy-2*dDotN*uy;
+        bounce = { x1:ex, y1:ey, x2:ex+rx*65, y2:ey+ry*65 };
+        break;
+      }
+      if(branch==='open') break;
+      // wall: reflect horizontally and keep tracing from the bounce point
+      dx = -dx; ox = ex; oy = ey;
     }
-    const tEnd = Math.min(tBoundary, tSoldier);
-    const endPoint = { x:origin.x+dir.x*tEnd, y:origin.y+dir.y*tEnd };
-    let bounce=null;
-    if(hitS && tSoldier<=tBoundary){
-      let ux=(endPoint.x-hitS.x), uy=(endPoint.y-hitS.y);
-      const nlen=Math.hypot(ux,uy)||1; ux/=nlen; uy/=nlen;
-      const dDotN = dir.x*ux+dir.y*uy;
-      const rx = dir.x-2*dDotN*ux, ry = dir.y-2*dDotN*uy;
-      bounce = { x1:endPoint.x, y1:endPoint.y, x2:endPoint.x+rx*65, y2:endPoint.y+ry*65 };
-    }
-    return { endPoint, bounce, hitS };
+    return { points, bounce, hitS };
   }
 
   // ---------- physics ----------
@@ -1144,8 +1193,18 @@
         }
       }
 
-      const out = (ball.x<FIELD.left-BALL_R || ball.x>FIELD.right+BALL_R ||
-                   ball.y<FIELD.top-BALL_R  || ball.y>FIELD.bottom+BALL_R);
+      // side walls bounce the ball back in; top/bottom stay open (a ball crossing them is out)
+      if(ball.x - BALL_R < FIELD.left){
+        ball.x = FIELD.left + BALL_R;
+        ball.vx = Math.abs(ball.vx) * WALL_RESTITUTION;
+        if(Math.hypot(ball.vx,ball.vy) > 40){ spawnParticles(ball.x,ball.y,'#ffe17a',6,90); sfxWallBounce(); triggerShake(2,0.08); }
+      } else if(ball.x + BALL_R > FIELD.right){
+        ball.x = FIELD.right - BALL_R;
+        ball.vx = -Math.abs(ball.vx) * WALL_RESTITUTION;
+        if(Math.hypot(ball.vx,ball.vy) > 40){ spawnParticles(ball.x,ball.y,'#ffe17a',6,90); sfxWallBounce(); triggerShake(2,0.08); }
+      }
+
+      const out = (ball.y<FIELD.top-BALL_R || ball.y>FIELD.bottom+BALL_R);
       const speedNow=Math.hypot(ball.vx,ball.vy);
       if(out || speedNow<STOP_SPEED){ balls.splice(bi,1); }
     }
@@ -1242,9 +1301,15 @@
         const dir = { x:Math.cos(angle), y:Math.sin(angle) };
         const preview = raycastPreview(aimBall, dir, turn);
         ctx.setLineDash([9,7]);
-        ctx.beginPath(); ctx.moveTo(aimBall.x,aimBall.y); ctx.lineTo(preview.endPoint.x,preview.endPoint.y);
+        ctx.beginPath();
+        ctx.moveTo(preview.points[0].x, preview.points[0].y);
+        for(let i=1;i<preview.points.length;i++) ctx.lineTo(preview.points[i].x, preview.points[i].y);
         ctx.strokeStyle=`rgba(255,255,255,${0.35+power*0.4})`; ctx.lineWidth=2; ctx.stroke();
         ctx.setLineDash([]);
+        for(let i=1;i<preview.points.length-1;i++){
+          ctx.beginPath(); ctx.arc(preview.points[i].x, preview.points[i].y, 3.5, 0, Math.PI*2);
+          ctx.fillStyle='rgba(255,225,122,.85)'; ctx.fill();
+        }
         if(preview.hitS){
           ctx.beginPath(); ctx.arc(preview.hitS.x,preview.hitS.y,preview.hitS.r+5,0,Math.PI*2);
           ctx.strokeStyle='rgba(255,80,60,.7)'; ctx.lineWidth=2; ctx.stroke();
