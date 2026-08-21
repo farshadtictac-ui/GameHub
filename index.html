@@ -281,6 +281,15 @@
   const REWARD_NAME = { doubleThrow:'Double Throw', doubleDamage:'Double Damage (2 HP)', tripleShot:'Triple Shot (3 balls)' };
   const TEAM_COLOR = { red:'#e6543a', blue:'#4478e6' };
 
+  const SOLDIER_IMAGES = {};
+  ['red','blue'].forEach(team=>{
+    ['heavy','medium','light'].forEach(tier=>{
+      const img = new Image();
+      img.src = 'images/soldier-'+team+'-'+tier+'.png';
+      SOLDIER_IMAGES[team+'-'+tier] = img;
+    });
+  });
+
   // ---------- state ----------
   let phase = 'setupRed';
   let pools = { red:{...START_COUNTS}, blue:{...START_COUNTS} };
@@ -1212,15 +1221,24 @@
     ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fill();
     ctx.beginPath(); ctx.arc(s.x,s.y,s.r+3,0,Math.PI*2);
     ctx.strokeStyle=s.ring; ctx.lineWidth=3; ctx.stroke();
-    ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
-    ctx.fillStyle=col; ctx.fill();
-    ctx.lineWidth=2; ctx.strokeStyle=dark; ctx.stroke();
-    ctx.beginPath(); ctx.arc(s.x,s.y-s.r*0.15,s.r*0.72,Math.PI,Math.PI*2);
-    ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(s.x-s.r*0.25,s.y-s.r*0.35,s.r*0.3,0,Math.PI*2);
-    ctx.fillStyle='rgba(255,255,255,.3)'; ctx.fill();
-    ctx.strokeStyle=dark; ctx.lineWidth=2.2;
-    ctx.beginPath(); ctx.moveTo(s.x+s.r*0.2,s.y+s.r*0.1); ctx.lineTo(s.x+s.r*1.15,s.y-s.r*0.5); ctx.stroke();
+
+    const img = SOLDIER_IMAGES[s.team+'-'+s.tier];
+    const useImage = img && img.complete && img.naturalWidth > 0;
+    if(useImage){
+      const size = s.r*2.3;
+      ctx.drawImage(img, s.x-size/2, s.y-size/2, size, size);
+    } else {
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle=col; ctx.fill();
+      ctx.lineWidth=2; ctx.strokeStyle=dark; ctx.stroke();
+      ctx.beginPath(); ctx.arc(s.x,s.y-s.r*0.15,s.r*0.72,Math.PI,Math.PI*2);
+      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(s.x-s.r*0.25,s.y-s.r*0.35,s.r*0.3,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,.3)'; ctx.fill();
+      ctx.strokeStyle=dark; ctx.lineWidth=2.2;
+      ctx.beginPath(); ctx.moveTo(s.x+s.r*0.2,s.y+s.r*0.1); ctx.lineTo(s.x+s.r*1.15,s.y-s.r*0.5); ctx.stroke();
+    }
+
     const pipR=2.3, gap=6.5, totalW=(s.maxHp-1)*gap;
     for(let i=0;i<s.maxHp;i++){
       const px=s.x-totalW/2+i*gap, py=s.y+s.r+8;
