@@ -347,6 +347,22 @@
   function sendHello(){
     send({type:'hello', name: net.myName || 'Player'});
   }
+  function logEvent(event, extra){
+    if(net.mode!=='host' && net.mode!=='guest') return;
+    try{
+      fetch('https://'+SERVER_HOST+'/log', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(Object.assign({
+          event,
+          telegramId: tgUser ? tgUser.id : null,
+          nickname: net.myName || 'Player',
+          opponentNickname: net.opponentName || null,
+          mode: net.code ? 'room' : 'quickmatch'
+        }, extra||{}))
+      }).catch(()=>{});
+    }catch(e){}
+  }
   function showReconnectBanner(text){
     document.getElementById('reconnectText').innerHTML = text+'<span class="dot3">...</span>';
     document.getElementById('reconnectBanner').classList.add('show');
@@ -500,6 +516,7 @@
         sendHello(); updateNameLabels();
         broadcastState();
         connBadge('🟢 Connected', true);
+        logEvent('played');
       } else {
         netStatus('Opponent found! Starting game...');
         sendHello(); updateNameLabels();
@@ -520,7 +537,7 @@
       hideReconnectBanner();
       document.getElementById('lobbyOverlay').classList.remove('show');
       if(net.mode==='host'){
-        if(!net.gameStarted){ fullReset(); net.gameStarted = true; }
+        if(!net.gameStarted){ fullReset(); net.gameStarted = true; logEvent('played'); }
         sendHello();
         broadcastState();
       } else {
@@ -533,8 +550,10 @@
       return;
     }
     if(msg.type==='state'){
+      const firstTime = !net.gameStarted;
       applyState(msg);
       net.gameStarted = true;
+      if(firstTime) logEvent('played');
       if(net.mode==='guest'){
         connBadge('🟢 Connected', true);
         hideReconnectBanner();
@@ -552,6 +571,7 @@
     else if(msg.type==='guestRestart'){ fullReset(); broadcastState(); }
   }
 
+  let lastWinner = null;
   function broadcastState(){
     if(net.mode!=='host' || !net.connected) return;
     send({
@@ -559,7 +579,7 @@
       phase, turn, pools,
       soldiers: soldiers.map(s=>({x:s.x,y:s.y,r:s.r,ring:s.ring,tier:s.tier,hp:s.hp,maxHp:s.maxHp,team:s.team,alive:s.alive})),
       balls: balls.map(b=>({x:b.x,y:b.y,team:b.team,trail:b.trail})),
-      pendingReward, hitCounter, winsCount,
+      pendingReward, hitCounter, winsCount, winner:lastWinner,
       subtitle: document.getElementById('subtitle').textContent,
       hint: document.getElementById('hint').textContent,
       resultTitle: document.getElementById('resultTitle').textContent,
@@ -583,6 +603,9 @@
       document.getElementById('resultText').textContent = s.resultText;
       document.getElementById('overlay').classList.add('show');
       sfxWin(); launchConfetti();
+      if(net.myTeam && s.winner){
+        logEvent('result', { result: s.winner===net.myTeam ? 'win':'loss' });
+      }
     } else if(phase!=='gameover'){
       document.getElementById('overlay').classList.remove('show');
     }
@@ -876,6 +899,7 @@
     if(redAlive===0 || blueAlive===0){
       phase='gameover';
       const winner = redAlive===0 ? 'blue':'red';
+      lastWinner = winner;
       const wName = winner==='red'?'Red':'Blue';
       winsCount[winner]++;
       document.getElementById('winsRed').textContent = winsCount.red;
@@ -885,6 +909,9 @@
       document.getElementById('overlay').classList.add('show');
       sfxWin();
       launchConfetti();
+      if(net.myTeam){
+        logEvent('result', { result: winner===net.myTeam ? 'win':'loss' });
+      }
       broadcastState();
       return true;
     }
