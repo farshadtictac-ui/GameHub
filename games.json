@@ -1,0 +1,11 @@
+[
+  {
+    "id": "soldier-wars",
+    "title": "Soldier Wars",
+    "subtitle": "Slingshot battle \u2014 knock down the enemy squad",
+    "tag": "2-Player \u00b7 Online",
+    "icon": "\u2694\ufe0f",
+    "path": "games/soldier-wars/index.html",
+    "status": "available"
+  }
+]
