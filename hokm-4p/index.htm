@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Hokm 4-Player</title>
+<style>
+:root{
+  --brass:#c9a24b;
+  --paper:#e9dfc4;
+  --red:#c8402a;
+  --blue:#2a5fc8;
+  --panel:#241a10;
+  --panel2:#3a2a17;
+}
+*{box-sizing:border-box;}
+html,body{
+  margin:0; padding:0; min-height:100%;
+  background:radial-gradient(ellipse at center, #1c3320 0%, #0d1a10 100%);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  color:var(--paper);
+  display:flex; flex-direction:column; align-items:center;
+  -webkit-tap-highlight-color: transparent;
+  padding-bottom:24px;
+}
+h1{ font-size:20px; margin:12px 0 2px; color:var(--brass); text-shadow:0 2px 3px rgba(0,0,0,.6); }
+.sub{ font-size:12px; color:#c9dcc9; margin-bottom:8px; text-align:center; padding:0 16px; max-width:480px;}
+
+.hud{
+  width:min(94vw, 520px);
+  display:flex; justify-content:space-between; align-items:center;
+  padding:7px 14px; margin-bottom:6px;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:2px solid var(--brass); border-radius:10px; font-size:12px;
+  box-shadow:inset 0 0 12px rgba(0,0,0,.5);
+}
+.score-block{ display:flex; flex-direction:column; gap:2px; width:38%; }
+.score-block.right{ align-items:flex-end; text-align:right; }
+.score-label{ font-weight:bold; font-size:11.5px; }
+.score-num{ font-size:15px; font-weight:bold; color:var(--brass); }
+@keyframes turnPulse{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.35); } }
+.turn-badge{ padding:4px 11px; border-radius:20px; font-size:11.5px; font-weight:bold; white-space:nowrap; background:var(--brass); color:#241a10; animation:turnPulse 1.6s ease-in-out infinite; }
+
+.table-wrap{
+  position:relative;
+  width:min(94vw, 520px); border-radius:14px; padding:12px;
+  background:
+    radial-gradient(ellipse at 50% 20%, rgba(255,255,255,.06), transparent 55%),
+    linear-gradient(155deg,#2d4a2f,#152318);
+  border:3px solid #4a6b4a; box-shadow:0 10px 26px rgba(0,0,0,.55), inset 0 0 30px rgba(0,0,0,.35);
+  margin-bottom:10px;
+}
+.table-wrap::before{
+  content:''; position:absolute; inset:6px; border-radius:9px;
+  border:1px solid rgba(201,162,75,.28); pointer-events:none;
+}
+.trump-badge{ text-align:center; font-size:13px; font-weight:bold; color:var(--brass); margin-bottom:8px; letter-spacing:.5px; }
+.hokm-badge{
+  display:flex; flex-direction:column; align-items:center; gap:0;
+  margin:2px auto 12px; padding:6px 22px 10px; border-radius:14px; width:fit-content;
+  background:radial-gradient(ellipse at 50% 0%, #4a3319, #1a1108 75%);
+  border:2px solid var(--brass); box-shadow:0 4px 14px rgba(0,0,0,.5), inset 0 0 14px rgba(201,162,75,.18);
+}
+.hokm-badge .hokm-label{ font-size:11px; letter-spacing:5px; color:var(--brass); font-weight:bold; }
+.hokm-badge .hokm-symbol{ font-size:40px; line-height:1.1; text-shadow:0 3px 6px rgba(0,0,0,.6); }
+.hokm-badge .hokm-symbol.pending{ font-size:22px; color:#8a7550; }
+
+.grid4{
+  display:grid; grid-template-columns:60px 1fr 60px; grid-template-rows:auto auto auto;
+  grid-template-areas: ". north ." "west center east" ". south .";
+  gap:6px; align-items:center; justify-items:center; min-height:230px;
+}
+.seat-N{ grid-area:north; } .seat-E{ grid-area:east; } .seat-S{ grid-area:south; } .seat-W{ grid-area:west; }
+.seat-center{ grid-area:center; }
+.seat-box{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+.seat-name{ font-size:10.5px; color:#c9dcc9; font-weight:bold; }
+.seat-name.active{ color:var(--brass); text-shadow:0 0 6px rgba(201,162,75,.7); }
+.mini-back{
+  position:relative; overflow:hidden;
+  width:16px; height:22px; border-radius:3px;
+  background:
+    repeating-linear-gradient(45deg, rgba(201,162,75,.16) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(-45deg, rgba(201,162,75,.16) 0 2px, transparent 2px 5px),
+    linear-gradient(160deg,#2c2011,#4a3319);
+  border:1px solid var(--brass);
+}
+.mini-back-row{ display:flex; flex-wrap:wrap; justify-content:center; gap:2px; max-width:52px; }
+
+.center-stage{
+  position:relative; width:100%; height:100%;
+  display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr 1fr;
+  grid-template-areas: ". n ." "w . e" ". s .";
+}
+.slot-N{ grid-area:n; align-self:end; justify-self:center; }
+.slot-S{ grid-area:s; align-self:start; justify-self:center; }
+.slot-E{ grid-area:e; align-self:center; justify-self:start; }
+.slot-W{ grid-area:w; align-self:center; justify-self:end; }
+.playing-card{
+  position:relative; overflow:hidden;
+  width:38px; height:53px; border-radius:6px; background:linear-gradient(160deg,#f4ecd6,var(--paper));
+  box-shadow:0 3px 8px rgba(0,0,0,.4);
+  border:1px solid rgba(0,0,0,.25);
+}
+.playing-card.empty{ background:rgba(255,255,255,.04); box-shadow:none; border:1.5px dashed rgba(255,255,255,.15); }
+.pip{ position:absolute; font-size:8.5px; font-weight:bold; line-height:1.05; display:flex; flex-direction:column; align-items:center; }
+.pip.top{ top:3px; left:3px; }
+.pip.bottom{ bottom:3px; right:3px; transform:rotate(180deg); }
+.pip .pipsuit{ font-size:8.5px; }
+.pip-center{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:18px; opacity:.9; }
+@keyframes winnerPulse{
+  0%{ box-shadow:0 3px 8px rgba(0,0,0,.4), 0 0 0 rgba(201,162,75,0); }
+  50%{ box-shadow:0 3px 8px rgba(0,0,0,.4), 0 0 18px 5px rgba(201,162,75,.85); }
+  100%{ box-shadow:0 3px 8px rgba(0,0,0,.4), 0 0 0 rgba(201,162,75,0); }
+}
+.winner-glow{ animation: winnerPulse 1s ease-in-out; }
+@keyframes flyN{
+  0%{ transform:translate(0,0) scale(1) rotate(0deg); opacity:1; }
+  45%{ transform:translate(0,-22px) scale(.85) rotate(-14deg); opacity:1; }
+  100%{ transform:translate(0,-70px) scale(.25) rotate(-45deg); opacity:0; }
+}
+@keyframes flyS{
+  0%{ transform:translate(0,0) scale(1) rotate(0deg); opacity:1; }
+  45%{ transform:translate(0,22px) scale(.85) rotate(14deg); opacity:1; }
+  100%{ transform:translate(0,70px) scale(.25) rotate(45deg); opacity:0; }
+}
+@keyframes flyE{
+  0%{ transform:translate(0,0) scale(1) rotate(0deg); opacity:1; }
+  45%{ transform:translate(22px,-10px) scale(.85) rotate(16deg); opacity:1; }
+  100%{ transform:translate(70px,4px) scale(.25) rotate(50deg); opacity:0; }
+}
+@keyframes flyW{
+  0%{ transform:translate(0,0) scale(1) rotate(0deg); opacity:1; }
+  45%{ transform:translate(-22px,-10px) scale(.85) rotate(-16deg); opacity:1; }
+  100%{ transform:translate(-70px,4px) scale(.25) rotate(-50deg); opacity:0; }
+}
+.fly-N{ animation: flyN .65s cubic-bezier(.4,.2,.6,1) forwards; }
+.fly-S{ animation: flyS .65s cubic-bezier(.4,.2,.6,1) forwards; }
+.fly-E{ animation: flyE .65s cubic-bezier(.4,.2,.6,1) forwards; }
+.fly-W{ animation: flyW .65s cubic-bezier(.4,.2,.6,1) forwards; }
+@keyframes sparklePop{
+  0%{ transform:translate(0,0) scale(.4); opacity:1; }
+  100%{ transform:var(--sp-end) scale(1); opacity:0; }
+}
+.sparkle{ position:fixed; font-size:14px; pointer-events:none; z-index:5; animation: sparklePop .7s ease-out forwards; }
+
+@keyframes cardIn{
+  0%{ transform:scale(.35) translateY(18px) rotate(-8deg); opacity:0; }
+  70%{ transform:scale(1.08) translateY(-3px) rotate(2deg); opacity:1; }
+  100%{ transform:scale(1) translateY(0) rotate(0deg); opacity:1; }
+}
+.card-anim{ animation: cardIn .32s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes tableGlow{
+  0%{ box-shadow: 0 10px 26px rgba(0,0,0,.55), inset 0 0 30px rgba(0,0,0,.35), inset 0 0 0px rgba(201,162,75,0); }
+  40%{ box-shadow: 0 10px 26px rgba(0,0,0,.55), inset 0 0 30px rgba(0,0,0,.35), inset 0 0 24px rgba(201,162,75,.35); }
+  100%{ box-shadow: 0 10px 26px rgba(0,0,0,.55), inset 0 0 30px rgba(0,0,0,.35), inset 0 0 0px rgba(201,162,75,0); }
+}
+.table-flash{ animation: tableGlow .6s ease-out; }
+
+.trump-picker{ text-align:center; padding:6px 0 4px; }
+.trump-picker p{ font-size:13px; margin:0 0 10px; color:#e5d8bf; }
+.suit-btn-row{ display:flex; justify-content:center; gap:10px; }
+.suit-btn{
+  width:52px; height:52px; border-radius:10px; font-size:24px; cursor:pointer;
+  background:var(--paper); border:2px solid var(--brass);
+  box-shadow:0 3px 0 #5c451c;
+}
+.suit-btn:active{ transform:translateY(2px); box-shadow:none; }
+.suit-btn.S,.suit-btn.C{ color:#1a1108; }
+.suit-btn.H,.suit-btn.D{ color:var(--red); }
+
+.my-hand-wrap{ width:min(94vw, 520px); }
+.my-hand-label{ font-size:11.5px; color:#c9dcc9; margin:2px 4px 6px; }
+.my-hand-row{ display:flex; flex-wrap:wrap; justify-content:center; gap:5px; max-height:128px; overflow:hidden; padding:4px 4px 10px; }
+.hand-card{
+  position:relative; overflow:hidden;
+  flex:0 0 auto; width:40px; height:58px; border-radius:6px; background:linear-gradient(160deg,#f4ecd6,var(--paper));
+  cursor:pointer; border:2px solid transparent;
+  box-shadow:0 3px 6px rgba(0,0,0,.35); transition:transform .15s ease, box-shadow .15s ease;
+}
+.hand-card.red-suit{ color:var(--red); }
+.hand-card.black-suit{ color:#1a1108; }
+.hand-card:active{ transform:translateY(3px); }
+.hand-card.disabled{ opacity:.35; cursor:not-allowed; }
+.hand-card.playable{ border-color:var(--brass); box-shadow:0 0 8px rgba(201,162,75,.6), 0 3px 6px rgba(0,0,0,.35); }
+
+.hint{ text-align:center; font-size:12px; color:#c9dcc9; margin-top:4px; min-height:16px; padding:0 10px;}
+.btnrow{ margin:10px 0 4px; display:flex; gap:10px; }
+button.mainbtn{
+  font-family:inherit; font-size:13px; font-weight:bold;
+  padding:9px 16px; border-radius:8px; border:none; cursor:pointer;
+  background:linear-gradient(180deg, var(--brass), #8a6a30); color:#241a10;
+  box-shadow:0 3px 0 #5c451c, 0 4px 8px rgba(0,0,0,.4);
+}
+button.mainbtn:active{ transform:translateY(2px); box-shadow:0 1px 0 #5c451c; }
+button.ghost{ background:transparent; border:2px solid var(--brass); color:var(--brass); box-shadow:none; }
+
+.overlay{ position:fixed; inset:0; background:rgba(10,6,3,.9); display:none; align-items:center; justify-content:center; z-index:20; padding:16px; }
+.overlay.show{display:flex;}
+.panel{
+  position:relative; overflow:hidden;
+  background:linear-gradient(180deg,var(--panel2),#1a1108);
+  border:2px solid var(--brass); border-radius:14px; padding:24px 26px; text-align:center; max-width:340px; width:100%;
+}
+.panel h2{ margin:0 0 10px; color:var(--brass); font-size:19px; }
+.panel p{ margin:0 0 16px; font-size:13px; color:#e5d8bf; line-height:1.8; }
+@keyframes confetti-fall{ 0%{ transform:translateY(-30px) rotate(0deg); opacity:1; } 100%{ transform:translateY(360px) rotate(360deg); opacity:0; } }
+.confetti-piece{ position:absolute; top:0; font-size:18px; animation:confetti-fall linear forwards; pointer-events:none; }
+.howto-list{ text-align:right; font-size:13px; line-height:2; color:#e5d8bf; margin:0 0 16px; padding-right:4px; }
+.howto-list li{ margin-bottom:6px; }
+.hub-link{
+  position:fixed; top:10px; left:12px; z-index:16; font-size:12px; color:var(--brass);
+  text-decoration:none; border:1px solid var(--brass); border-radius:6px; padding:4px 9px;
+  background:rgba(0,0,0,.4);
+}
+.back-link{ font-size:12px; color:var(--brass); text-decoration:underline; cursor:pointer; margin-top:14px; display:inline-block; }
+</style>
+</head>
+<body>
+
+<a class="hub-link" href="../../index.html">← Games</a>
+
+<div class="overlay show" id="startOverlay">
+  <div class="panel">
+    <h2>🃏 Hokm — 4 Players 🃏</h2>
+    <p>The full, traditional Hokm: you and a computer partner (North) versus two computer opponents (East &amp; West). Standard 13-card hands, first to 7 tricks wins the round.</p>
+    <button class="mainbtn" id="startBtn" style="width:100%; margin-bottom:10px;">▶️ Start Game</button>
+    <button class="mainbtn ghost" id="showHowToBtn" style="width:100%;">❓ How to Play</button>
+    <div><a class="back-link" href="../../index.html" style="text-decoration:none;">← Back to Games</a></div>
+  </div>
+</div>
+
+<div class="overlay" id="howToOverlay">
+  <div class="panel">
+    <h2>❓ How to Play</h2>
+    <ol class="howto-list">
+      <li>Four seats: North, East, South (you), West. North+South are partners; East+West are partners.</li>
+      <li>Each player is dealt 13 cards.</li>
+      <li>The hakem (ruler) picks the trump suit for the round.</li>
+      <li>The hakem leads the first trick. Play passes clockwise: North → East → South → West.</li>
+      <li>Follow the led suit if you can — otherwise play anything, including trump.</li>
+      <li>Highest trump wins the trick; with no trump played, highest card of the led suit wins.</li>
+      <li>Whoever wins a trick leads the next one.</li>
+      <li>Tricks are counted by team. First team to win 7 of the 13 tricks wins the round.</li>
+      <li>The hakem role rotates clockwise each new round.</li>
+    </ol>
+    <button class="mainbtn" id="closeHowToBtn">Got it</button>
+  </div>
+</div>
+
+<h1>🃏 Hokm — 4 Players 🃏</h1>
+<div class="sub" id="subtitle">Setting up the table...</div>
+
+<div class="hud">
+  <div class="score-block">
+    <div class="score-label" style="color:var(--brass);">Your Team (N+S)</div>
+    <div class="score-num"><span id="nsTricks">0</span> tricks</div>
+  </div>
+  <div id="turnBadge" class="turn-badge">—</div>
+  <div class="score-block right">
+    <div class="score-label" style="color:#8fb0e0;">Opponents (E+W)</div>
+    <div class="score-num"><span id="ewTricks">0</span> tricks</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <div class="hokm-badge" id="hokmBadge">
+    <div class="hokm-label">HOKM</div>
+    <div class="hokm-symbol pending" id="hokmSymbol">?</div>
+  </div>
+
+  <div class="trump-picker" id="trumpPicker" style="display:none;">
+    <p>You are the hakem — choose the trump suit:</p>
+    <div class="suit-btn-row">
+      <button class="suit-btn S" data-suit="S">♠</button>
+      <button class="suit-btn H" data-suit="H">♥</button>
+      <button class="suit-btn D" data-suit="D">♦</button>
+      <button class="suit-btn C" data-suit="C">♣</button>
+    </div>
+  </div>
+
+  <div class="grid4" id="grid4">
+    <div class="seat-box seat-N">
+      <div class="seat-name" id="nameN">North (partner)</div>
+      <div class="mini-back-row" id="backN"></div>
+    </div>
+    <div class="seat-box seat-W">
+      <div class="seat-name" id="nameW">West</div>
+      <div class="mini-back-row" id="backW"></div>
+    </div>
+    <div class="seat-center">
+      <div class="center-stage">
+        <div class="playing-card empty slot-N" id="cardN"></div>
+        <div class="playing-card empty slot-E" id="cardE"></div>
+        <div class="playing-card empty slot-S" id="cardS"></div>
+        <div class="playing-card empty slot-W" id="cardW"></div>
+      </div>
+    </div>
+    <div class="seat-box seat-E">
+      <div class="seat-name" id="nameE">East</div>
+      <div class="mini-back-row" id="backE"></div>
+    </div>
+    <div class="seat-box seat-S">
+      <div class="seat-name active" id="nameS">You (South)</div>
+    </div>
+  </div>
+</div>
+
+<div class="my-hand-wrap">
+  <div class="my-hand-label" id="myHandLabel">Your hand</div>
+  <div class="my-hand-row" id="myHandRow"></div>
+</div>
+
+<div class="hint" id="hint">Dealing...</div>
+
+<div class="btnrow">
+  <button class="mainbtn ghost" id="restartBtn">Restart From Scratch</button>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="panel">
+    <h2 id="resultTitle">🏆 Your Team Wins the Round</h2>
+    <p id="resultText">You won 7 of 13 tricks!</p>
+    <button class="mainbtn" id="playAgainBtn">Play Again</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const tgUser = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) || null;
+  if(window.Telegram && window.Telegram.WebApp){
+    try{ window.Telegram.WebApp.ready(); window.Telegram.WebApp.expand(); }catch(e){}
+  }
+
+  // ---------- card model ----------
+  const SUITS = ['S','H','D','C'];
+  const SUIT_SYMBOL = { S:'♠', H:'♥', D:'♦', C:'♣' };
+  const RANK_LABEL = { 11:'J', 12:'Q', 13:'K', 14:'A' };
+  function rankLabel(r){ return RANK_LABEL[r] || String(r); }
+  function cardFaceHTML(card){
+    const r = rankLabel(card.rank), s = SUIT_SYMBOL[card.suit];
+    return '<div class="pip top">'+r+'<span class="pipsuit">'+s+'</span></div>'+
+           '<div class="pip-center">'+s+'</div>'+
+           '<div class="pip bottom">'+r+'<span class="pipsuit">'+s+'</span></div>';
+  }
+  function isRedSuit(s){ return s==='H' || s==='D'; }
+
+  function buildShuffledDeck(){
+    const deck = [];
+    SUITS.forEach(s=>{ for(let r=2;r<=14;r++) deck.push({suit:s, rank:r}); });
+    for(let i=deck.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [deck[i],deck[j]] = [deck[j],deck[i]];
+    }
+    return deck;
+  }
+  function sortHand(hand){
+    hand.sort((a,b)=> SUITS.indexOf(a.suit)-SUITS.indexOf(b.suit) || b.rank-a.rank);
+  }
+  function playableCards(hand, ledSuit){
+    if(!ledSuit) return hand;
+    const matching = hand.filter(c=>c.suit===ledSuit);
+    return matching.length>0 ? matching : hand;
+  }
+
+  // ---------- seats ----------
+  const SEATS = ['N','E','S','W'];
+  const NEXT_SEAT = { N:'E', E:'S', S:'W', W:'N' };
+  const PARTNER = { N:'S', S:'N', E:'W', W:'E' };
+  const TEAM_OF = { N:'NS', S:'NS', E:'EW', W:'EW' };
+  const SEAT_LABEL = { N:'North', E:'East', S:'You', W:'West' };
+  const HUMAN_SEAT = 'S';
+
+  function trickWinnerSeat(plays, trump){
+    const ledSuit = plays[0].card.suit;
+    let best = plays[0];
+    for(let i=1;i<plays.length;i++){
+      const p = plays[i];
+      const bestIsTrump = best.card.suit===trump;
+      const pIsTrump = p.card.suit===trump;
+      if(pIsTrump && !bestIsTrump) best = p;
+      else if(pIsTrump && bestIsTrump){ if(p.card.rank>best.card.rank) best = p; }
+      else if(!pIsTrump && !bestIsTrump){ if(p.card.suit===ledSuit && p.card.rank>best.card.rank) best = p; }
+    }
+    return best.seat;
+  }
+
+  // ---------- AI ----------
+  function aiChooseTrump(hand){
+    const counts={S:0,H:0,D:0,C:0}, power={S:0,H:0,D:0,C:0};
+    hand.forEach(c=>{ counts[c.suit]++; power[c.suit]+=c.rank; });
+    return SUITS.reduce((best,s)=> (counts[s]+power[s]/40) > (counts[best]+power[best]/40) ? s : best, SUITS[0]);
+  }
+  function suitCounts(hand){ const c={S:0,H:0,D:0,C:0}; hand.forEach(x=>c[x.suit]++); return c; }
+  function beatsPlay(card, currentBest, trump){
+    const bestIsTrump = currentBest.card.suit===trump, cardIsTrump = card.suit===trump;
+    if(cardIsTrump && !bestIsTrump) return true;
+    if(cardIsTrump && bestIsTrump) return card.rank>currentBest.card.rank;
+    if(!cardIsTrump && !bestIsTrump) return card.suit===currentBest.card.suit && card.rank>currentBest.card.rank;
+    return false;
+  }
+  function aiChooseCard(seat, hand, trick, trump){
+    const ledSuit = trick.length ? trick[0].card.suit : null;
+    const options = playableCards(hand, ledSuit);
+    const counts = suitCounts(hand);
+    if(trick.length===0){
+      const nonTrump = options.filter(c=>c.suit!==trump);
+      const pool = nonTrump.length ? nonTrump : options;
+      const bySuitLen = [...pool].sort((a,b)=> counts[b.suit]-counts[a.suit] || a.rank-b.rank);
+      return bySuitLen[0];
+    }
+    const currentBestSeat = trickWinnerSeat(trick, trump);
+    const partnerWinning = currentBestSeat === PARTNER[seat];
+    const currentBest = trick.find(p=>p.seat===currentBestSeat);
+    if(partnerWinning){
+      const nonTrump = options.filter(c=>c.suit!==trump);
+      const pool = nonTrump.length ? nonTrump : options;
+      const bySuitLenAsc = [...pool].sort((a,b)=> counts[a.suit]-counts[b.suit] || a.rank-b.rank);
+      return bySuitLenAsc[0];
+    }
+    const winning = options.filter(c=>beatsPlay(c, currentBest, trump));
+    if(winning.length){
+      winning.sort((a,b)=>{
+        const av = (a.suit===trump && currentBest.card.suit!==trump) ? a.rank+100 : a.rank;
+        const bv = (b.suit===trump && currentBest.card.suit!==trump) ? b.rank+100 : b.rank;
+        return av-bv;
+      });
+      return winning[0];
+    }
+    const nonTrump = options.filter(c=>c.suit!==trump);
+    const pool = nonTrump.length ? nonTrump : options;
+    const bySuitLenAsc = [...pool].sort((a,b)=> counts[a.suit]-counts[b.suit] || a.rank-b.rank);
+    return bySuitLenAsc[0];
+  }
+
+  // ---------- audio ----------
+  let actx=null;
+  function ac(){ if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return actx; }
+  function beep(freq,dur,type,vol,delay){
+    const c = ac(); if(!c) return;
+    const t0 = c.currentTime + (delay||0);
+    const osc = c.createOscillator(), g = c.createGain();
+    osc.type=type||'sine'; osc.frequency.setValueAtTime(freq,t0);
+    g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(vol||.15,t0+.01);
+    g.gain.exponentialRampToValueAtTime(.001,t0+dur);
+    osc.connect(g); g.connect(c.destination);
+    osc.start(t0); osc.stop(t0+dur+.02);
+  }
+  function sfxCard(){ beep(300,0.07,'triangle',.09); }
+  function sfxTrick(win){ beep(win?520:260,0.12,'triangle',.11); }
+  function sfxWin(){ [523,659,784,1046].forEach((f,i)=>beep(f,0.22,'triangle',.14,i*0.11)); }
+  function sparkleBurst(anchorEl){
+    const rect = anchorEl.getBoundingClientRect();
+    const emojis = ['✨','⭐','💫'];
+    for(let i=0;i<6;i++){
+      const el = document.createElement('div');
+      el.className = 'sparkle';
+      el.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+      const angle = Math.random()*Math.PI*2, dist = 20+Math.random()*24;
+      el.style.setProperty('--sp-end', 'translate('+(Math.cos(angle)*dist)+'px,'+(Math.sin(angle)*dist)+'px)');
+      el.style.left = (rect.left + rect.width/2 - 7) + 'px';
+      el.style.top = (rect.top + rect.height/2 - 7) + 'px';
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(), 750);
+    }
+  }
+  function launchConfetti(){
+    const panel = document.querySelector('#overlay .panel');
+    const emojis=['🎉','⭐','🏆','🃏','🎖️'];
+    for(let i=0;i<26;i++){
+      const el=document.createElement('div');
+      el.className='confetti-piece'; el.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+      el.style.left=Math.random()*100+'%';
+      el.style.animationDuration=(1.2+Math.random()*1.1)+'s';
+      el.style.animationDelay=(Math.random()*.4)+'s';
+      panel.appendChild(el);
+      setTimeout(()=>el.remove(), 2600);
+    }
+  }
+
+  // ---------- game state ----------
+  let hands = { N:[], E:[], S:[], W:[] };
+  let hakem = 'S';
+  let trump = null;
+  let turn = 'S';
+  let phase = 'trump'; // trump | playing | gameover
+  let trick = []; // [{seat, card}] in play order, trick[0] is leader
+  let tricksWon = { NS:0, EW:0 };
+  let roundsWon = { NS:0, EW:0 };
+  let lastWinner = null;
+  const TRICKS_TO_WIN = 7;
+
+  function setHint(t){ document.getElementById('hint').textContent = t; }
+
+  function startNewRound(nextHakem){
+    const deck = buildShuffledDeck();
+    hands.N = deck.slice(0,13); hands.E = deck.slice(13,26);
+    hands.S = deck.slice(26,39); hands.W = deck.slice(39,52);
+    SEATS.forEach(s=>sortHand(hands[s]));
+    trick=[]; tricksWon={NS:0,EW:0}; trump=null;
+    hakem = nextHakem || NEXT_SEAT[hakem] || 'S';
+    turn = hakem;
+    phase = 'trump';
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('subtitle').textContent = (hakem===HUMAN_SEAT ? "You are" : SEAT_LABEL[hakem]+' is') + ' the hakem — choosing trump...';
+    setHint(hakem===HUMAN_SEAT ? 'Pick a trump suit' : 'Waiting for the hakem to choose trump...');
+    updateHUD(); render();
+    maybeRunAI();
+  }
+  function fullReset(){
+    roundsWon = {NS:0,EW:0};
+    const first = SEATS[Math.floor(Math.random()*4)];
+    startNewRound(first);
+  }
+
+  function chooseTrump(suit){
+    trump = suit; phase='playing';
+    document.getElementById('subtitle').textContent = 'Trump is '+SUIT_SYMBOL[suit]+' — '+(hakem===HUMAN_SEAT?'you lead':SEAT_LABEL[hakem]+' leads')+' the first trick';
+    setHint(turn===HUMAN_SEAT ? 'Choose a card to lead' : 'Waiting...');
+    updateHUD(); render();
+    maybeRunAI();
+  }
+
+  function playCard(seat, card){
+    if(phase!=='playing' || turn!==seat) return;
+    const hand = hands[seat];
+    const idx = hand.findIndex(c=>c.suit===card.suit && c.rank===card.rank);
+    if(idx===-1) return;
+    const ledSuitNow = trick.length ? trick[0].card.suit : null;
+    const allowed = playableCards(hand, ledSuitNow);
+    if(!allowed.some(c=>c.suit===card.suit && c.rank===card.rank)) return;
+    hand.splice(idx,1);
+    trick.push({seat, card});
+    sfxCard();
+
+    if(trick.length<4){
+      turn = NEXT_SEAT[seat];
+      document.getElementById('subtitle').textContent = (turn===HUMAN_SEAT?'Your':SEAT_LABEL[turn]+"'s") + ' turn';
+      updateHUD(); render();
+      maybeRunAI();
+    } else {
+      turn = null; // block any further input while this trick resolves
+      const winnerSeat = trickWinnerSeat(trick, trump);
+      const winTeam = TEAM_OF[winnerSeat];
+      tricksWon[winTeam]++;
+      sfxTrick(winTeam==='NS');
+      const winCardEl = document.getElementById('card'+winnerSeat);
+      winCardEl.classList.remove('winner-glow'); void winCardEl.offsetWidth; winCardEl.classList.add('winner-glow');
+      sparkleBurst(winCardEl);
+      const tableEl = document.querySelector('.table-wrap');
+      tableEl.classList.remove('table-flash'); void tableEl.offsetWidth; tableEl.classList.add('table-flash');
+      updateHUD(); render();
+
+      setTimeout(()=>{
+        const flyClass = 'fly-'+winnerSeat;
+        const order = ['N','E','S','W'].sort((a,b)=> (a===winnerSeat?-1:0)-(b===winnerSeat?-1:0));
+        order.forEach((s,i)=>{
+          setTimeout(()=> document.getElementById('card'+s).classList.add(flyClass), i*70);
+        });
+        setTimeout(()=>{
+          ['N','E','S','W'].forEach(s=> document.getElementById('card'+s).classList.remove(flyClass,'winner-glow'));
+          trick = [];
+          turn = winnerSeat;
+          const ended = checkRoundEnd();
+          if(!ended){
+            document.getElementById('subtitle').textContent = (winnerSeat===HUMAN_SEAT?'You won':SEAT_LABEL[winnerSeat]+' won')+' the trick — '+(turn===HUMAN_SEAT?'your':SEAT_LABEL[turn]+"'s")+' lead';
+            updateHUD(); render();
+            maybeRunAI();
+          }
+        }, 740);
+      }, 1000);
+    }
+  }
+
+  function checkRoundEnd(){
+    let winner=null;
+    if(tricksWon.NS>=TRICKS_TO_WIN) winner='NS';
+    else if(tricksWon.EW>=TRICKS_TO_WIN) winner='EW';
+    else if(tricksWon.NS+tricksWon.EW>=13) winner = tricksWon.NS===tricksWon.EW ? 'draw' : (tricksWon.NS>tricksWon.EW?'NS':'EW');
+    if(!winner) return false;
+    endRound(winner);
+    return true;
+  }
+  function endRound(winner){
+    phase='gameover';
+    lastWinner = winner;
+    if(winner!=='draw'){
+      roundsWon[winner]++;
+      const wName = winner==='NS' ? 'Your Team' : 'Opponents';
+      document.getElementById('resultTitle').textContent = (winner==='NS'?'🏆':'😔')+' '+wName+' Win the Round!';
+      document.getElementById('resultText').textContent = wName+' won '+tricksWon[winner]+' of the 13 tricks. (Round win #'+roundsWon[winner]+')';
+      if(winner==='NS'){ sfxWin(); launchConfetti(); }
+    } else {
+      document.getElementById('resultTitle').textContent = '🤝 Draw!';
+      document.getElementById('resultText').textContent = 'It ended even.';
+    }
+    document.getElementById('overlay').classList.add('show');
+    updateHUD();
+  }
+
+  function maybeRunAI(){
+    if(phase==='trump' && turn!==HUMAN_SEAT){
+      setTimeout(()=>{ chooseTrump(aiChooseTrump(hands[turn])); }, 700);
+    } else if(phase==='playing' && turn!==HUMAN_SEAT){
+      setTimeout(()=>{
+        const seat = turn;
+        const card = aiChooseCard(seat, hands[seat], trick, trump);
+        playCard(seat, card);
+      }, 750);
+    }
+  }
+
+  // ---------- input ----------
+  function onCardClick(card){
+    if(phase!=='playing' || turn!==HUMAN_SEAT) return;
+    const ledSuitNow = trick.length ? trick[0].card.suit : null;
+    const allowed = playableCards(hands[HUMAN_SEAT], ledSuitNow);
+    if(!allowed.some(c=>c.suit===card.suit && c.rank===card.rank)){ setHint('You must follow suit!'); return; }
+    playCard(HUMAN_SEAT, card);
+  }
+  document.querySelectorAll('.suit-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(phase!=='trump' || turn!==HUMAN_SEAT) return;
+      chooseTrump(btn.dataset.suit);
+    });
+  });
+  document.getElementById('restartBtn').addEventListener('click', fullReset);
+  document.getElementById('playAgainBtn').addEventListener('click', ()=> startNewRound());
+  document.getElementById('startBtn').addEventListener('click', ()=>{
+    document.getElementById('startOverlay').classList.remove('show');
+    fullReset();
+  });
+  document.getElementById('showHowToBtn').addEventListener('click', ()=>{ document.getElementById('howToOverlay').classList.add('show'); });
+  document.getElementById('closeHowToBtn').addEventListener('click', ()=>{ document.getElementById('howToOverlay').classList.remove('show'); });
+
+  // ---------- render ----------
+  function setCardEl(el, card){
+    const sig = card ? (card.suit+''+card.rank) : 'empty';
+    const changed = el.dataset.sig !== sig;
+    el.dataset.sig = sig;
+    if(!card){ el.classList.add('empty'); el.classList.remove('card-anim'); el.innerHTML=''; return; }
+    el.classList.remove('empty');
+    el.style.color = isRedSuit(card.suit) ? 'var(--red)' : '#1a1108';
+    el.innerHTML = cardFaceHTML(card);
+    if(changed){ el.classList.remove('card-anim'); void el.offsetWidth; el.classList.add('card-anim'); }
+  }
+
+  function updateHUD(){
+    document.getElementById('nsTricks').textContent = tricksWon.NS;
+    document.getElementById('ewTricks').textContent = tricksWon.EW;
+    const badge = document.getElementById('turnBadge');
+    badge.textContent = phase==='gameover' ? '—' : (turn===null ? 'Resolving...' : (turn===HUMAN_SEAT ? 'Your Turn' : SEAT_LABEL[turn]+"'s Turn"));
+    const hokmEl = document.getElementById('hokmSymbol');
+    if(trump){
+      hokmEl.textContent = SUIT_SYMBOL[trump];
+      hokmEl.classList.remove('pending');
+      hokmEl.style.color = isRedSuit(trump) ? 'var(--red)' : 'var(--paper)';
+    } else {
+      hokmEl.textContent = '?';
+      hokmEl.classList.add('pending');
+    }
+    ['N','E','S','W'].forEach(s=>{
+      const nameEl = document.getElementById('name'+s);
+      if(nameEl) nameEl.classList.toggle('active', turn===s && phase!=='gameover');
+    });
+  }
+
+  function render(){
+    document.getElementById('trumpPicker').style.display = (phase==='trump' && turn===HUMAN_SEAT) ? 'block' : 'none';
+
+    ['N','E','W'].forEach(s=>{
+      const row = document.getElementById('back'+s);
+      const count = hands[s].length;
+      row.innerHTML = Array.from({length:Math.min(count,9)}).map(()=>'<div class="mini-back"></div>').join('');
+    });
+    document.getElementById('nameN').textContent = 'North (partner)'+(hakem==='N'?' 👑':'');
+    document.getElementById('nameE').textContent = 'East'+(hakem==='E'?' 👑':'');
+    document.getElementById('nameW').textContent = 'West'+(hakem==='W'?' 👑':'');
+    document.getElementById('nameS').textContent = 'You (South)'+(hakem==='S'?' 👑':'');
+
+    const bySeat = {};
+    trick.forEach(p=> bySeat[p.seat]=p.card);
+    setCardEl(document.getElementById('cardN'), bySeat.N || null);
+    setCardEl(document.getElementById('cardE'), bySeat.E || null);
+    setCardEl(document.getElementById('cardS'), bySeat.S || null);
+    setCardEl(document.getElementById('cardW'), bySeat.W || null);
+    document.getElementById('grid4').style.display = phase==='playing' ? 'grid' : (phase==='trump' ? 'none' : 'grid');
+
+    const row = document.getElementById('myHandRow');
+    row.innerHTML = '';
+    const myHand = hands[HUMAN_SEAT];
+    const ledSuitNow = trick.length ? trick[0].card.suit : null;
+    const canPlay = phase==='playing' && turn===HUMAN_SEAT;
+    const allowed = canPlay ? playableCards(myHand, ledSuitNow) : [];
+    myHand.forEach(card=>{
+      const el = document.createElement('div');
+      const isAllowed = allowed.some(c=>c.suit===card.suit && c.rank===card.rank);
+      el.className = 'hand-card '+(isRedSuit(card.suit)?'red-suit':'black-suit')+
+        (canPlay ? (isAllowed?' playable':' disabled') : '');
+      el.innerHTML = cardFaceHTML(card);
+      el.addEventListener('click', ()=> onCardClick(card));
+      row.appendChild(el);
+    });
+    document.getElementById('myHandLabel').textContent = 'Your hand ('+myHand.length+' cards)';
+  }
+})();
+</script>
+</body>
+</html>
