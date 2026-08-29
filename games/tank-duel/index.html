@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tank Duel</title>
+<style>
+:root{
+  --brass:#c9a24b;
+  --paper:#e9dfc4;
+  --red:#c8402a;
+  --blue:#2a5fc8;
+  --panel:#241a10;
+  --panel2:#3a2a17;
+}
+*{box-sizing:border-box;}
+html,body{
+  margin:0; padding:0; min-height:100%;
+  background:radial-gradient(ellipse at center, #241c14 0%, #0f0b07 100%);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  color:var(--paper);
+  display:flex; flex-direction:column; align-items:center;
+  -webkit-tap-highlight-color: transparent;
+  padding-bottom:24px;
+}
+h1{ font-size:20px; margin:12px 0 2px; color:var(--brass); text-shadow:0 2px 3px rgba(0,0,0,.6); }
+.sub{ font-size:12px; color:#c9b89a; margin-bottom:8px; text-align:center; padding:0 16px; max-width:480px;}
+.hud{
+  width:min(94vw, 640px);
+  display:flex; justify-content:space-between; align-items:center;
+  padding:7px 14px; margin-bottom:6px;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:2px solid var(--brass); border-radius:10px; font-size:12px;
+  box-shadow:inset 0 0 12px rgba(0,0,0,.5);
+}
+.hp-block{ display:flex; flex-direction:column; gap:3px; width:38%; }
+.hp-block.right{ align-items:flex-end; }
+.hp-label{ font-weight:bold; font-size:11px; }
+.hp-bar-track{ width:100%; height:8px; border-radius:5px; background:#1a1108; overflow:hidden; border:1px solid rgba(0,0,0,.4); }
+.hp-bar-fill{ height:100%; border-radius:5px; transition:width .25s ease; }
+.hp-bar-fill.red{ background:linear-gradient(90deg,#e6543a,#c8402a); }
+.hp-bar-fill.blue{ background:linear-gradient(90deg,#4478e6,#2a5fc8); }
+.turn-badge{ padding:4px 11px; border-radius:20px; font-size:12px; font-weight:bold; white-space:nowrap; }
+.turn-badge.red{background:var(--red); box-shadow:0 0 10px var(--red);}
+.turn-badge.blue{background:var(--blue); box-shadow:0 0 10px var(--blue);}
+
+.wind-bar{
+  width:min(94vw, 640px); display:flex; justify-content:center; align-items:center; gap:8px;
+  font-size:12px; margin-bottom:8px; color:#c9b89a;
+}
+.wins-bar{
+  width:min(94vw, 640px); display:flex; justify-content:center; gap:22px;
+  font-size:12px; margin-bottom:8px; color:#c9b89a;
+}
+.wins-bar b{ color:var(--brass); font-size:13px; }
+
+.board-wrap{
+  position:relative; width:min(94vw, 640px);
+  border-radius:12px; padding:6px;
+  background:linear-gradient(155deg,#5a4326,#2c2011);
+  box-shadow:0 10px 30px rgba(0,0,0,.6), inset 0 0 0 2px rgba(0,0,0,.3);
+}
+canvas{ display:block; width:100%; height:auto; border-radius:8px; touch-action:none; }
+
+.panel-bar{
+  width:min(94vw, 640px); margin-top:8px;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:2px solid var(--brass); border-radius:10px; padding:12px 14px;
+}
+.slider-row{ margin-bottom:10px; }
+.slider-row label{ display:flex; justify-content:space-between; font-size:12px; font-weight:bold; margin-bottom:4px; }
+.slider-row label span{ color:var(--brass); }
+.shell-row{ display:flex; gap:7px; margin-bottom:10px; }
+.tier-btn{
+  flex:1 1 auto; min-width:70px; font-family:inherit; font-size:11.5px; font-weight:bold;
+  padding:7px 4px; border-radius:8px; border:2px solid transparent; cursor:pointer;
+  background:#2c2011; color:var(--paper); text-align:center; line-height:1.5;
+}
+.tier-btn b{ display:block; font-size:13px; }
+.tier-btn.active{ border-color:var(--brass); background:#463111; box-shadow:0 0 8px rgba(201,162,75,.5); }
+.tier-btn:disabled{ opacity:.35; cursor:not-allowed; }
+input[type=range]{
+  width:100%; -webkit-appearance:none; appearance:none; height:8px; border-radius:5px;
+  background:#1a1108; outline:none; border:1px solid rgba(0,0,0,.4);
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none; width:22px; height:22px; border-radius:50%;
+  background:linear-gradient(180deg, var(--brass), #8a6a30); border:2px solid #1a1108; cursor:pointer;
+  box-shadow:0 2px 4px rgba(0,0,0,.5);
+}
+input[type=range]::-moz-range-thumb{
+  width:22px; height:22px; border-radius:50%;
+  background:linear-gradient(180deg, var(--brass), #8a6a30); border:2px solid #1a1108; cursor:pointer;
+}
+input[type=range]:disabled{ opacity:.35; }
+.actionrow{ display:flex; gap:8px; justify-content:center; }
+.hint{ text-align:center; font-size:12px; color:#c9b89a; margin-top:8px; min-height:16px; padding:0 10px;}
+.btnrow{ margin:12px 0 4px; display:flex; gap:10px; }
+button.mainbtn{
+  font-family:inherit; font-size:13px; font-weight:bold;
+  padding:9px 16px; border-radius:8px; border:none; cursor:pointer;
+  background:linear-gradient(180deg, var(--brass), #8a6a30); color:#241a10;
+  box-shadow:0 3px 0 #5c451c, 0 4px 8px rgba(0,0,0,.4);
+}
+button.mainbtn:active{ transform:translateY(2px); box-shadow:0 1px 0 #5c451c; }
+button.mainbtn:disabled{ opacity:.4; cursor:not-allowed; }
+button.ghost{ background:transparent; border:2px solid var(--brass); color:var(--brass); box-shadow:none; }
+button.firebtn{ width:100%; font-size:15px; padding:12px; }
+
+.overlay{
+  position:fixed; inset:0; background:rgba(10,6,3,.9);
+  display:none; align-items:center; justify-content:center; z-index:20; padding:16px;
+}
+.overlay.show{display:flex;}
+.panel{
+  position:relative; overflow:hidden;
+  background:linear-gradient(180deg,var(--panel2),#1a1108);
+  border:2px solid var(--brass); border-radius:14px; padding:24px 26px; text-align:center; max-width:340px; width:100%;
+}
+.panel h2{ margin:0 0 10px; color:var(--brass); font-size:19px; }
+.panel p{ margin:0 0 16px; font-size:13px; color:#e5d8bf; line-height:1.8; }
+@keyframes confetti-fall{
+  0%{ transform:translateY(-30px) rotate(0deg); opacity:1; }
+  100%{ transform:translateY(360px) rotate(360deg); opacity:0; }
+}
+.confetti-piece{ position:absolute; top:0; font-size:18px; animation:confetti-fall linear forwards; pointer-events:none; }
+
+.lobby-choices{ display:flex; flex-direction:column; gap:10px; margin-top:6px; }
+.lobby-choices button.mainbtn{ width:100%; padding:11px 16px; }
+.code-display{
+  font-size:34px; font-weight:bold; letter-spacing:6px; color:var(--brass);
+  background:#1a1108; border-radius:10px; padding:10px 14px; margin:14px 0;
+}
+.join-input{
+  width:100%; font-family:inherit; font-size:22px; letter-spacing:6px; text-align:center;
+  padding:10px; border-radius:8px; border:2px solid var(--brass); background:#1a1108;
+  color:var(--paper); margin-bottom:12px;
+}
+.name-input{
+  width:100%; font-family:inherit; font-size:15px; text-align:center;
+  padding:9px; border-radius:8px; border:2px solid var(--brass); background:#1a1108;
+  color:var(--paper); margin-bottom:12px;
+}
+.net-status{ font-size:12px; color:#c9b89a; margin-top:10px; min-height:16px; }
+.back-link{ font-size:12px; color:var(--brass); text-decoration:underline; cursor:pointer; margin-top:14px; display:inline-block; }
+.hub-link{
+  position:fixed; top:10px; left:12px; z-index:16; font-size:12px; color:var(--brass);
+  text-decoration:none; border:1px solid var(--brass); border-radius:6px; padding:4px 9px;
+  background:rgba(0,0,0,.4);
+}
+.conn-badge{
+  position:fixed; top:8px; right:10px; z-index:15; font-size:11px; padding:4px 9px;
+  border-radius:12px; background:rgba(0,0,0,.5); border:1px solid var(--brass); color:var(--paper); display:none;
+}
+.howto-list{ text-align:right; font-size:13px; line-height:2; color:#e5d8bf; margin:0 0 16px; padding-right:4px; }
+.howto-list li{ margin-bottom:6px; }
+.reconnect-banner{
+  position:fixed; top:0; left:0; right:0; z-index:25; display:none;
+  background:linear-gradient(180deg,#7a2e18,#4a1a0e); color:#ffe17a;
+  text-align:center; font-size:13px; font-weight:bold; padding:10px 14px;
+  box-shadow:0 3px 10px rgba(0,0,0,.5);
+}
+.reconnect-banner.show{ display:block; }
+.reconnect-banner .back-link{ color:#ffe17a; margin-top:6px; }
+@keyframes pulse-op{ 0%,100%{opacity:1;} 50%{opacity:.5;} }
+.reconnect-banner .dot3{ animation:pulse-op 1.2s infinite; }
+</style>
+</head>
+<body>
+
+<a class="hub-link" href="../../index.html">← Games</a>
+
+<div class="reconnect-banner" id="reconnectBanner">
+  <span id="reconnectText">🔄 Connection lost. Reconnecting<span class="dot3">...</span></span>
+  <div><span class="back-link" id="giveUpReconnect">← Return to Menu</span></div>
+</div>
+
+<div class="conn-badge" id="connBadge">🟢 Connected</div>
+
+<div class="overlay show" id="lobbyOverlay">
+  <div class="panel">
+    <h2>💥 Tank Duel 💥</h2>
+    <div id="lobbyChoice">
+      <p>Aim, adjust for wind, and blast your opponent off the map.</p>
+      <input class="name-input" id="playerNameInput" maxlength="16" placeholder="Your name">
+      <div class="lobby-choices">
+        <button class="mainbtn" id="playLocalBtn">📱 Play on One Device</button>
+        <button class="mainbtn" id="quickMatchBtn">🎲 Quick Match (random opponent)</button>
+        <button class="mainbtn ghost" id="createRoomBtn">➕ Create Room (invite a friend)</button>
+        <button class="mainbtn ghost" id="showJoinBtn">🔑 Join Room (I have a code)</button>
+        <button class="mainbtn ghost" id="showHowToBtn">❓ How to Play</button>
+      </div>
+    </div>
+    <div id="lobbyJoin" style="display:none;">
+      <p>Enter the 4-digit code your friend shared with you</p>
+      <input class="join-input" id="joinCodeInput" maxlength="4" inputmode="numeric" placeholder="0000">
+      <button class="mainbtn" id="joinRoomBtn" style="width:100%;">Join</button>
+      <div><span class="back-link" id="backFromJoin">← Back</span></div>
+    </div>
+    <div id="lobbyWaiting" style="display:none;">
+      <p>Share this code with your friend:</p>
+      <div class="code-display" id="roomCodeDisplay">----</div>
+      <p id="lobbyWaitText">Waiting for your friend to join...</p>
+      <div><span class="back-link" id="cancelWaiting">← Cancel</span></div>
+    </div>
+    <div id="lobbyQuickWait" style="display:none;">
+      <p>🎲 Looking for an opponent...</p>
+      <p style="font-size:12px;">This can take a moment if nobody else is online right now.</p>
+      <div><span class="back-link" id="cancelQuickWait">← Cancel</span></div>
+    </div>
+    <div class="net-status" id="netStatus"></div>
+    <div><a class="back-link" href="../../index.html" style="text-decoration:none;">← Back to Games</a></div>
+  </div>
+</div>
+
+<div class="overlay" id="howToOverlay">
+  <div class="panel">
+    <h2>❓ How to Play</h2>
+    <ol class="howto-list">
+      <li>Set your cannon's angle and power with the sliders.</li>
+      <li>Watch the dotted preview line to line up your shot.</li>
+      <li>Mind the wind — it pushes your shell left or right in flight.</li>
+      <li>Tap "Fire!" to launch. Direct hits and near misses both do damage.</li>
+      <li>The terrain gets blasted apart, so craters can help or hurt your next shot.</li>
+      <li>First tank to lose all its health loses the round.</li>
+    </ol>
+    <button class="mainbtn" id="closeHowToBtn">Got it</button>
+  </div>
+</div>
+
+<h1>💥 Tank Duel 💥</h1>
+<div class="sub" id="subtitle">Aim carefully — the wind is watching</div>
+
+<div class="hud">
+  <div class="hp-block">
+    <div class="hp-label" style="color:var(--red);"><span id="redName">Red</span></div>
+    <div class="hp-bar-track"><div class="hp-bar-fill red" id="redHpBar" style="width:100%;"></div></div>
+  </div>
+  <div id="turnBadge" class="turn-badge red">Red's Turn</div>
+  <div class="hp-block right">
+    <div class="hp-label" style="color:var(--blue);"><span id="blueName">Blue</span></div>
+    <div class="hp-bar-track"><div class="hp-bar-fill blue" id="blueHpBar" style="width:100%;"></div></div>
+  </div>
+</div>
+
+<div class="wind-bar" id="windBar">💨 Wind: calm</div>
+
+<div class="wins-bar" id="winsBar">
+  <span>🔴 <span id="redNameWins">Red</span>: <b id="winsRed">0</b></span>
+  <span>🔵 <span id="blueNameWins">Blue</span>: <b id="winsBlue">0</b></span>
+</div>
+
+<div class="board-wrap">
+  <canvas id="game" width="460" height="480"></canvas>
+</div>
+
+<div class="panel-bar" id="aimPanel">
+  <div class="shell-row">
+    <button class="tier-btn" data-shell="heavy">💥 Heavy<b id="cnt-heavy">3</b></button>
+    <button class="tier-btn" data-shell="medium">💣 Medium<b id="cnt-medium">8</b></button>
+    <button class="tier-btn" data-shell="light">🪶 Light<b id="cnt-light">6</b></button>
+  </div>
+  <div class="slider-row">
+    <label>Angle <span id="angleVal">45°</span></label>
+    <input type="range" id="angleSlider" min="5" max="85" value="45">
+  </div>
+  <div class="slider-row">
+    <label>Power <span id="powerVal">60%</span></label>
+    <input type="range" id="powerSlider" min="10" max="100" value="60">
+  </div>
+  <div class="actionrow">
+    <button class="mainbtn firebtn" id="fireBtn">🔥 Fire!</button>
+  </div>
+</div>
+
+<div class="hint" id="hint">Set your angle and power, then fire</div>
+
+<div class="btnrow">
+  <button class="mainbtn ghost" id="restartBtn">Restart From Scratch</button>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="panel">
+    <h2 id="resultTitle">🏆 Red Tank Wins</h2>
+    <p id="resultText">Red blasted the enemy tank to scrap!</p>
+    <button class="mainbtn" id="playAgainBtn">Play Again</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // ---------- config ----------
+  const POINTS = 26;
+  const STEP_X = W / POINTS;
+  const GRAVITY = 480;
+  const POWER_SCALE = 6.4;
+  const TANK_W = 26, TANK_H = 14;
+  const MAX_HP = 220;
+  const PREVIEW_STEPS = 42; // short preview — you can't see all the way to impact
+
+  const SHELL_TYPES = {
+    light:  { label:'Light',  icon:'🪶', dmgMax:20, directBonus:10, radius:28, startCount:6, color:'#ffe17a' },
+    medium: { label:'Medium', icon:'💣', dmgMax:32, directBonus:16, radius:38, startCount:8, color:'#ffb347' },
+    heavy:  { label:'Heavy',  icon:'💥', dmgMax:48, directBonus:24, radius:50, startCount:3, color:'#ff5a3a' }
+  };
+  let pools = { red:{}, blue:{} };
+  let selectedShell = 'medium';
+
+  const tgUser = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) || null;
+  if(window.Telegram && window.Telegram.WebApp){
+    try{ window.Telegram.WebApp.ready(); window.Telegram.WebApp.expand(); }catch(e){}
+  }
+
+  // ---------- state ----------
+  let terrain = [];
+  let tanks = { red:{x:0,y:0,hp:100}, blue:{x:0,y:0,hp:100} };
+  let shell = null; // {x,y,vx,vy,team,active}
+  let wind = 0;
+  let turn = 'red';
+  let phase = 'battle'; // 'battle' | 'gameover'
+  let winsCount = { red:0, blue:0 };
+  let particles = [];
+  let shake = { time:0, mag:0 };
+  let lastWinner = null;
+
+  function rand(a,b){ return a + Math.random()*(b-a); }
+  function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+  function terrainHeightAt(x){
+    x = clamp(x, 0, W);
+    const idx = x / STEP_X;
+    const i0 = Math.floor(idx), i1 = Math.min(POINTS, i0+1);
+    const t = idx - i0;
+    const y0 = terrain[i0] !== undefined ? terrain[i0] : H*0.6;
+    const y1 = terrain[i1] !== undefined ? terrain[i1] : H*0.6;
+    return y0 + (y1-y0)*t;
+  }
+
+  function displace(points, i, j, range){
+    if(j-i < 2) return;
+    const mid = Math.floor((i+j)/2);
+    points[mid] = (points[i]+points[j])/2 + rand(-range,range);
+    points[mid] = clamp(points[mid], H*0.32, H*0.86);
+    displace(points, i, mid, range/1.7);
+    displace(points, mid, j, range/1.7);
+  }
+
+  function generateTerrain(){
+    const pts = new Array(POINTS+1);
+    pts[0] = H*0.58 + rand(-20,20);
+    pts[POINTS] = H*0.58 + rand(-20,20);
+    displace(pts, 0, POINTS, 90);
+    return pts;
+  }
+
+  function craterTerrain(x, radiusPx, depth){
+    for(let i=0;i<=POINTS;i++){
+      const px = i*STEP_X;
+      const d = Math.abs(px-x);
+      if(d < radiusPx){
+        const falloff = 1 - d/radiusPx;
+        terrain[i] = clamp(terrain[i] + depth*falloff, H*0.25, H*0.94);
+      }
+    }
+  }
+
+  function placeTanks(){
+    const rx = STEP_X*3, bx = W-STEP_X*3;
+    tanks.red = { x:rx, y:terrainHeightAt(rx)-TANK_H/2, hp:MAX_HP };
+    tanks.blue = { x:bx, y:terrainHeightAt(bx)-TANK_H/2, hp:MAX_HP };
+  }
+
+  function settleTanks(){
+    tanks.red.y = terrainHeightAt(tanks.red.x)-TANK_H/2;
+    tanks.blue.y = terrainHeightAt(tanks.blue.x)-TANK_H/2;
+  }
+
+  // ---------- particles ----------
+  function spawnExplosion(x,y,big){
+    const n = big? 26:14;
+    for(let i=0;i<n;i++){
+      const a = Math.random()*Math.PI*2, sp = rand(60,big?260:170);
+      particles.push({ x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:rand(.35,.7), maxLife:.7,
+        color: Math.random()<0.5?'#ffb347':'#ff5a3a', r:rand(2,big?5:3.5) });
+    }
+  }
+  function updateParticles(dt){
+    particles.forEach(p=>{ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=260*dt; p.life-=dt; });
+    particles = particles.filter(p=>p.life>0);
+  }
+  function drawParticles(){
+    particles.forEach(p=>{
+      ctx.globalAlpha = Math.max(0,p.life/p.maxLife);
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=p.color; ctx.fill();
+    });
+    ctx.globalAlpha=1;
+  }
+  function triggerShake(mag,time){ shake.mag=Math.max(shake.mag,mag); shake.time=Math.max(shake.time,time); }
+  function updateShake(dt){ if(shake.time>0){ shake.time-=dt; if(shake.time<=0) shake.mag=0; } }
+
+  // ---------- audio (tiny synth beeps, no external files) ----------
+  let actx=null;
+  function ac(){ if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return actx; }
+  function beep(freq,dur,type,vol,delay){
+    const c = ac(); if(!c) return;
+    const t0 = c.currentTime + (delay||0);
+    const osc = c.createOscillator(), g = c.createGain();
+    osc.type=type||'sine'; osc.frequency.setValueAtTime(freq,t0);
+    g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(vol||.15,t0+.01);
+    g.gain.exponentialRampToValueAtTime(.001,t0+dur);
+    osc.connect(g); g.connect(c.destination);
+    osc.start(t0); osc.stop(t0+dur+.02);
+  }
+  function sfxFire(){ beep(180,0.12,'sawtooth',.12); }
+  function sfxExplode(){ beep(90,0.28,'square',.18); beep(50,0.35,'sine',.14,0.03); }
+  function sfxWin(){ [523,659,784,1046].forEach((f,i)=>beep(f,0.22,'triangle',.14,i*0.11)); }
+
+  // ---------- confetti ----------
+  function launchConfetti(){
+    const panel = document.querySelector('#overlay .panel');
+    const emojis=['🎉','⭐','🏆','💥','🎖️'];
+    for(let i=0;i<26;i++){
+      const el=document.createElement('div');
+      el.className='confetti-piece'; el.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+      el.style.left=Math.random()*100+'%';
+      el.style.animationDuration=(1.2+Math.random()*1.1)+'s';
+      el.style.animationDelay=(Math.random()*.4)+'s';
+      panel.appendChild(el);
+      setTimeout(()=>el.remove(), 2600);
+    }
+  }
+
+  // ---------- multiplayer networking ----------
+  const SERVER_HOST = 'soldier-wars-server.farshad-tictac.workers.dev';
+  const net = {
+    ws:null, mode:'local', role:null, myTeam:null, connected:false, code:null,
+    myName:'', opponentName:'', gameStarted:false,
+    reconnectAttempts:0, reconnectTimer:null, manualExit:false
+  };
+
+  if(tgUser && tgUser.first_name){
+    document.getElementById('playerNameInput').value = tgUser.first_name;
+  }
+
+  function netStatus(msg){ document.getElementById('netStatus').textContent = msg || ''; }
+  function connBadge(text, show){
+    const b = document.getElementById('connBadge');
+    b.textContent = text; b.style.display = show ? 'block':'none';
+  }
+  function updateNameLabels(){
+    const myLabel = net.myName || (net.myTeam==='red' ? 'Red' : 'Blue');
+    const oppLabel = net.opponentName || (net.myTeam==='red' ? 'Blue' : 'Red');
+    const rN = net.myTeam==='red' ? myLabel : (net.myTeam==='blue' ? oppLabel : 'Red');
+    const bN = net.myTeam==='blue' ? myLabel : (net.myTeam==='red' ? oppLabel : 'Blue');
+    document.getElementById('redName').textContent = rN;
+    document.getElementById('blueName').textContent = bN;
+    document.getElementById('redNameWins').textContent = rN;
+    document.getElementById('blueNameWins').textContent = bN;
+  }
+  function sendHello(){ send({type:'hello', name: net.myName || 'Player'}); }
+  function logEvent(event, extra){
+    if(net.mode!=='host' && net.mode!=='guest') return;
+    try{
+      fetch('https://'+SERVER_HOST+'/log', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(Object.assign({
+          event, game:'tank-duel',
+          telegramId: tgUser ? tgUser.id : null,
+          nickname: net.myName || 'Player',
+          opponentNickname: net.opponentName || null,
+          mode: net.code ? 'room' : 'quickmatch'
+        }, extra||{}))
+      }).catch(()=>{});
+    }catch(e){}
+  }
+  function showReconnectBanner(text){
+    document.getElementById('reconnectText').innerHTML = text+'<span class="dot3">...</span>';
+    document.getElementById('reconnectBanner').classList.add('show');
+  }
+  function hideReconnectBanner(){ document.getElementById('reconnectBanner').classList.remove('show'); }
+
+  function wireSocket(ws){
+    net.ws = ws;
+    ws.addEventListener('open', ()=>{
+      net.connected = true; net.reconnectAttempts = 0;
+      if(net.reconnectTimer){ clearTimeout(net.reconnectTimer); net.reconnectTimer=null; }
+      hideReconnectBanner();
+    });
+    ws.addEventListener('message', (ev)=>{
+      let msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
+      handleNetMessage(msg);
+    });
+    ws.addEventListener('close', ()=> onNetDisconnect());
+    ws.addEventListener('error', ()=> onNetDisconnect(true));
+  }
+
+  function openSocket(role, code){
+    net.role = role;
+    const url = 'wss://'+SERVER_HOST+'/connect?role='+role+'&code='+code;
+    const ws = new WebSocket(url);
+    net.code = code;
+    wireSocket(ws);
+    ws.addEventListener('open', ()=>{
+      if(role==='host'){
+        document.getElementById('lobbyWaitText').textContent = 'Waiting for your friend to join...';
+      } else {
+        netStatus('Connected! Waiting for the game to start...');
+        sendHello();
+      }
+    });
+  }
+
+  function quickMatch(){
+    net.mode='pending'; net.role=null; net.code=null;
+    document.getElementById('lobbyChoice').style.display='none';
+    document.getElementById('lobbyQuickWait').style.display='block';
+    const ws = new WebSocket('wss://'+SERVER_HOST+'/quickmatch');
+    wireSocket(ws);
+  }
+
+  function attemptReconnect(){
+    if(!net.code || !net.role){ showReconnectBanner('🔴 Connection lost'); return; }
+    net.reconnectAttempts++;
+    if(net.reconnectAttempts > 20){ showReconnectBanner('🔴 Could not reconnect'); return; }
+    showReconnectBanner('🔄 Reconnecting (attempt '+net.reconnectAttempts+')');
+    net.reconnectTimer = setTimeout(()=>{
+      openSocket(net.role, net.code);
+      if(net.role==='guest'){ setTimeout(()=>{ if(net.connected) send({type:'requestState'}); }, 400); }
+    }, 1800);
+  }
+
+  function onNetDisconnect(isError){
+    if(net.mode==='local' || net.manualExit) return;
+    net.connected = false;
+    if(!net.gameStarted){
+      connBadge('', false);
+      netStatus(isError ? 'Could not connect. Try again.' : 'Connection closed.');
+      document.getElementById('lobbyOverlay').classList.add('show');
+      document.getElementById('lobbyChoice').style.display='block';
+      document.getElementById('lobbyJoin').style.display='none';
+      document.getElementById('lobbyWaiting').style.display='none';
+      document.getElementById('lobbyQuickWait').style.display='none';
+      net.mode='local';
+      return;
+    }
+    connBadge('🔴 Disconnected', true);
+    if(net.code) attemptReconnect();
+    else showReconnectBanner('🔴 Connection lost');
+  }
+
+  document.getElementById('giveUpReconnect').addEventListener('click', ()=>{
+    net.manualExit = true;
+    if(net.reconnectTimer) clearTimeout(net.reconnectTimer);
+    if(net.ws) net.ws.close();
+    net.mode='local'; net.connected=false; net.gameStarted=false; net.manualExit=false;
+    hideReconnectBanner(); connBadge('', false);
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('lobbyOverlay').classList.add('show');
+    document.getElementById('lobbyChoice').style.display='block';
+    document.getElementById('lobbyJoin').style.display='none';
+    document.getElementById('lobbyWaiting').style.display='none';
+    document.getElementById('lobbyQuickWait').style.display='none';
+    netStatus('');
+  });
+
+  async function createRoom(){
+    net.myName = document.getElementById('playerNameInput').value.trim();
+    netStatus('Creating room...');
+    try{
+      const res = await fetch('https://'+SERVER_HOST+'/create');
+      const data = await res.json();
+      if(!data.code){ netStatus('Could not create a room. Try again.'); return; }
+      net.mode='host'; net.myTeam='red';
+      document.getElementById('roomCodeDisplay').textContent = data.code;
+      document.getElementById('lobbyChoice').style.display='none';
+      document.getElementById('lobbyWaiting').style.display='block';
+      openSocket('host', data.code);
+    }catch(e){ netStatus('Network error. Check your connection.'); }
+  }
+
+  function joinRoom(code){
+    if(!/^\d{4}$/.test(code)){ netStatus('Enter the 4-digit code.'); return; }
+    net.myName = document.getElementById('playerNameInput').value.trim();
+    net.mode='guest'; net.myTeam='blue';
+    netStatus('Connecting...');
+    openSocket('guest', code);
+  }
+
+  function send(obj){ if(net.ws && net.ws.readyState===WebSocket.OPEN) net.ws.send(JSON.stringify(obj)); }
+
+  function handleNetMessage(msg){
+    if(msg.type==='waiting') return;
+    if(msg.type==='matched'){
+      net.myName = document.getElementById('playerNameInput').value.trim();
+      net.mode = msg.team==='red' ? 'host' : 'guest';
+      net.role = net.mode; net.myTeam = msg.team;
+      document.getElementById('lobbyQuickWait').style.display='none';
+      if(net.mode==='host'){
+        document.getElementById('lobbyOverlay').classList.remove('show');
+        fullReset(); net.gameStarted = true;
+        sendHello(); updateNameLabels();
+        broadcastState(); connBadge('🟢 Connected', true);
+        logEvent('played');
+      } else {
+        netStatus('Opponent found! Starting game...');
+        sendHello(); updateNameLabels();
+      }
+      return;
+    }
+    if(msg.type==='hello'){ net.opponentName = msg.name || ''; updateNameLabels(); return; }
+    if(msg.type==='requestState'){ if(net.mode==='host') broadcastState(); return; }
+    if(msg.type==='opponent_joined'){
+      connBadge('🟢 Connected', true); hideReconnectBanner();
+      document.getElementById('lobbyOverlay').classList.remove('show');
+      if(net.mode==='host'){
+        if(!net.gameStarted){ fullReset(); net.gameStarted = true; logEvent('played'); }
+        sendHello(); broadcastState();
+      } else { sendHello(); }
+      return;
+    }
+    if(msg.type==='opponent_left'){ showReconnectBanner('⏳ Waiting for your friend to reconnect'); return; }
+    if(msg.type==='state'){
+      const firstTime = !net.gameStarted;
+      applyState(msg);
+      net.gameStarted = true;
+      if(firstTime) logEvent('played');
+      if(net.mode==='guest'){
+        connBadge('🟢 Connected', true); hideReconnectBanner();
+        document.getElementById('lobbyOverlay').classList.remove('show');
+      }
+      return;
+    }
+    if(net.mode!=='host') return;
+    if(msg.type==='guestFire') hostHandleGuestFire(msg.angle, msg.power, msg.shellType);
+    else if(msg.type==='guestRestart'){ fullReset(); broadcastState(); }
+  }
+
+  function broadcastState(){
+    if(net.mode!=='host' || !net.connected) return;
+    send({
+      type:'state', phase, turn, wind, terrain, tanks, shell, winsCount, winner:lastWinner, pools,
+      subtitle: document.getElementById('subtitle').textContent,
+      hint: document.getElementById('hint').textContent,
+      resultTitle: document.getElementById('resultTitle').textContent,
+      resultText: document.getElementById('resultText').textContent
+    });
+  }
+
+  let lastAppliedPhase = null;
+  function applyState(s){
+    phase=s.phase; turn=s.turn; wind=s.wind; terrain=s.terrain; tanks=s.tanks; shell=s.shell;
+    winsCount=s.winsCount; pools=s.pools || pools;
+    document.getElementById('subtitle').textContent = s.subtitle;
+    setHint(s.hint);
+    document.getElementById('winsRed').textContent = winsCount.red;
+    document.getElementById('winsBlue').textContent = winsCount.blue;
+    updateHUD();
+    if(phase==='gameover' && lastAppliedPhase!=='gameover'){
+      document.getElementById('resultTitle').textContent = s.resultTitle;
+      document.getElementById('resultText').textContent = s.resultText;
+      document.getElementById('overlay').classList.add('show');
+      sfxWin(); launchConfetti();
+      if(net.myTeam && s.winner){ logEvent('result', { result: s.winner===net.myTeam ? 'win':'loss' }); }
+    } else if(phase!=='gameover'){
+      document.getElementById('overlay').classList.remove('show');
+    }
+    lastAppliedPhase = phase;
+    refreshAimPanel();
+  }
+
+  function hostHandleGuestFire(angle, power, shellType){
+    if(phase!=='battle' || turn!=='blue' || shell) return;
+    performFire('blue', angle, power, shellType);
+  }
+
+  // ---------- game flow ----------
+  function myTurnToControl(team){ if(net.mode==='local') return true; return net.myTeam===team; }
+
+  function setHint(t){ document.getElementById('hint').textContent = t; }
+
+  function fullReset(){
+    terrain = generateTerrain();
+    placeTanks();
+    shell = null;
+    turn = 'red';
+    phase = 'battle';
+    wind = Math.round(rand(-30,30));
+    particles = [];
+    pools = {
+      red:  { light:SHELL_TYPES.light.startCount, medium:SHELL_TYPES.medium.startCount, heavy:SHELL_TYPES.heavy.startCount },
+      blue: { light:SHELL_TYPES.light.startCount, medium:SHELL_TYPES.medium.startCount, heavy:SHELL_TYPES.heavy.startCount }
+    };
+    selectedShell = 'medium';
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('subtitle').textContent = "Red's turn — aim carefully";
+    setHint('Set your angle and power, then fire');
+    updateHUD();
+    refreshAimPanel();
+  }
+
+  function updateHUD(){
+    document.getElementById('redHpBar').style.width = Math.max(0, tanks.red.hp/MAX_HP*100)+'%';
+    document.getElementById('blueHpBar').style.width = Math.max(0, tanks.blue.hp/MAX_HP*100)+'%';
+    const badge = document.getElementById('turnBadge');
+    if(phase==='battle'){
+      badge.textContent = (turn==='red'?(net.myTeam?( net.myTeam==='red'?'Your':document.getElementById('redName').textContent+"'s"):'Red\'s'):(net.myTeam?(net.myTeam==='blue'?'Your':document.getElementById('blueName').textContent+"'s"):'Blue\'s')) + ' Turn';
+      badge.className = 'turn-badge '+turn;
+    }
+    const dirArrow = wind>0 ? '→' : (wind<0 ? '←' : '');
+    document.getElementById('windBar').textContent = '💨 Wind: ' + (wind===0?'calm':Math.abs(wind)+' '+dirArrow);
+  }
+
+  function refreshShellButtons(){
+    const team = myTurnToControl(turn) ? turn : (net.myTeam || turn);
+    const myPool = pools[team] || pools.red;
+    Object.keys(SHELL_TYPES).forEach(k=>{
+      const btn = document.querySelector('.tier-btn[data-shell="'+k+'"]');
+      const countEl = document.getElementById('cnt-'+k);
+      if(countEl) countEl.textContent = myPool[k];
+      if(btn){
+        btn.disabled = myPool[k] <= 0;
+        btn.classList.toggle('active', selectedShell===k);
+      }
+    });
+    if((pools[team] && pools[team][selectedShell] <= 0)){
+      const fallback = Object.keys(SHELL_TYPES).find(k=>pools[team][k]>0);
+      if(fallback) selectedShell = fallback;
+    }
+  }
+
+  function refreshAimPanel(){
+    const mine = phase==='battle' && myTurnToControl(turn);
+    document.getElementById('angleSlider').disabled = !mine || !!shell;
+    document.getElementById('powerSlider').disabled = !mine || !!shell;
+    document.getElementById('fireBtn').disabled = !mine || !!shell;
+    refreshShellButtons();
+    if(phase==='battle'){
+      if(!myTurnToControl(turn)) setHint("Waiting for the other tank to fire...");
+      else if(shell) setHint('Shell in flight...');
+      else setHint('Set your angle and power, then fire');
+    }
+  }
+
+  function simulateTrajectory(team, angleDeg, powerPct){
+    const tank = tanks[team];
+    const rad = angleDeg*Math.PI/180;
+    const dir = team==='red' ? 1 : -1;
+    let x=tank.x, y=tank.y-6;
+    let vx = Math.cos(rad)*powerPct*POWER_SCALE*dir;
+    let vy = -Math.sin(rad)*powerPct*POWER_SCALE;
+    const pts=[{x,y}];
+    for(let i=0;i<PREVIEW_STEPS;i++){
+      const dt=0.02;
+      vx += wind*0.5*dt; vy += GRAVITY*dt;
+      x += vx*dt; y += vy*dt;
+      pts.push({x,y});
+      if(y >= terrainHeightAt(x) || x<0 || x>W) break;
+    }
+    return pts;
+  }
+
+  function performFire(team, angleDeg, powerPct, shellType){
+    shellType = shellType && pools[team][shellType]>0 ? shellType : Object.keys(SHELL_TYPES).find(k=>pools[team][k]>0);
+    if(!shellType) return;
+    pools[team][shellType]--;
+    sfxFire();
+    const tank = tanks[team];
+    const rad = angleDeg*Math.PI/180;
+    const dir = team==='red' ? 1 : -1;
+    shell = {
+      x:tank.x, y:tank.y-6,
+      vx:Math.cos(rad)*powerPct*POWER_SCALE*dir,
+      vy:-Math.sin(rad)*powerPct*POWER_SCALE,
+      team, shellType, trail:[]
+    };
+    refreshAimPanel();
+    broadcastState();
+  }
+
+  function resolveImpact(x,y,directHitTeam,shellType){
+    const cfg = SHELL_TYPES[shellType] || SHELL_TYPES.medium;
+    const isBig = !!directHitTeam;
+    spawnExplosion(x,y,isBig);
+    sfxExplode();
+    triggerShake(isBig?7:4, isBig?0.3:0.18);
+    craterTerrain(x, cfg.radius, 46);
+    ['red','blue'].forEach(team=>{
+      const t = tanks[team];
+      const d = Math.hypot(t.x-x, t.y-y);
+      const reach = cfg.radius+18;
+      if(d < reach){
+        let dmg = Math.round((1 - d/reach) * cfg.dmgMax);
+        if(directHitTeam===team) dmg += cfg.directBonus;
+        t.hp = Math.max(0, t.hp - dmg);
+      }
+    });
+    settleTanks();
+    shell = null;
+
+    if(tanks.red.hp<=0 || tanks.blue.hp<=0){
+      phase='gameover';
+      const winner = tanks.red.hp<=0 ? 'blue':'red';
+      lastWinner = winner;
+      winsCount[winner]++;
+      const wName = document.getElementById(winner==='red'?'redName':'blueName').textContent;
+      document.getElementById('winsRed').textContent = winsCount.red;
+      document.getElementById('winsBlue').textContent = winsCount.blue;
+      document.getElementById('resultTitle').textContent = (winner==='red'?'🔴':'🔵')+' '+wName+' Wins!';
+      document.getElementById('resultText').textContent = wName+"'s tank blasted the enemy to scrap! (Win #"+winsCount[winner]+')';
+      document.getElementById('overlay').classList.add('show');
+      sfxWin(); launchConfetti();
+      if(net.myTeam){ logEvent('result', { result: winner===net.myTeam ? 'win':'loss' }); }
+      broadcastState();
+      return;
+    }
+
+    turn = turn==='red' ? 'blue' : 'red';
+    wind = Math.round(rand(-30,30));
+    document.getElementById('subtitle').textContent = (turn==='red'?document.getElementById('redName').textContent:document.getElementById('blueName').textContent) + "'s turn";
+    updateHUD();
+    refreshAimPanel();
+    broadcastState();
+  }
+
+  // ---------- input ----------
+  const angleSlider = document.getElementById('angleSlider');
+  const powerSlider = document.getElementById('powerSlider');
+  angleSlider.addEventListener('input', ()=>{ document.getElementById('angleVal').textContent = angleSlider.value+'°'; });
+  powerSlider.addEventListener('input', ()=>{ document.getElementById('powerVal').textContent = powerSlider.value+'%'; });
+
+  document.querySelectorAll('.tier-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(btn.disabled) return;
+      selectedShell = btn.dataset.shell;
+      refreshShellButtons();
+    });
+  });
+
+  document.getElementById('fireBtn').addEventListener('click', ()=>{
+    if(phase!=='battle' || shell || !myTurnToControl(turn)) return;
+    if(pools[turn][selectedShell] <= 0) return;
+    const angle = Number(angleSlider.value), power = Number(powerSlider.value);
+    if(net.mode==='guest'){ send({type:'guestFire', angle, power, shellType:selectedShell}); setHint('Shot sent...'); return; }
+    performFire(turn, angle, power, selectedShell);
+  });
+
+  function requestRestart(){
+    if(net.mode==='guest'){ send({type:'guestRestart'}); return; }
+    fullReset();
+    if(net.mode==='host') broadcastState();
+  }
+  document.getElementById('restartBtn').addEventListener('click', requestRestart);
+  document.getElementById('playAgainBtn').addEventListener('click', requestRestart);
+
+  document.getElementById('showHowToBtn').addEventListener('click', ()=>{ document.getElementById('howToOverlay').classList.add('show'); });
+  document.getElementById('closeHowToBtn').addEventListener('click', ()=>{ document.getElementById('howToOverlay').classList.remove('show'); });
+
+  document.getElementById('playLocalBtn').addEventListener('click', ()=>{
+    net.mode='local'; net.myTeam=null; net.gameStarted=false;
+    document.getElementById('lobbyOverlay').classList.remove('show');
+    updateNameLabels();
+    fullReset();
+  });
+  document.getElementById('createRoomBtn').addEventListener('click', createRoom);
+  document.getElementById('quickMatchBtn').addEventListener('click', quickMatch);
+  document.getElementById('cancelQuickWait').addEventListener('click', ()=>{
+    if(net.ws) net.ws.close();
+    net.mode='local'; net.connected=false;
+    document.getElementById('lobbyQuickWait').style.display='none';
+    document.getElementById('lobbyChoice').style.display='block';
+    netStatus('');
+  });
+  document.getElementById('showJoinBtn').addEventListener('click', ()=>{
+    document.getElementById('lobbyChoice').style.display='none';
+    document.getElementById('lobbyJoin').style.display='block';
+  });
+  document.getElementById('backFromJoin').addEventListener('click', ()=>{
+    document.getElementById('lobbyJoin').style.display='none';
+    document.getElementById('lobbyChoice').style.display='block';
+    netStatus('');
+  });
+  document.getElementById('cancelWaiting').addEventListener('click', ()=>{
+    if(net.ws) net.ws.close();
+    net.mode='local'; net.connected=false;
+    document.getElementById('lobbyWaiting').style.display='none';
+    document.getElementById('lobbyChoice').style.display='block';
+    netStatus('');
+  });
+  document.getElementById('joinRoomBtn').addEventListener('click', ()=>{
+    joinRoom(document.getElementById('joinCodeInput').value.trim());
+  });
+
+  // ---------- render ----------
+  function drawSky(){
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#3a2c1a'); g.addColorStop(0.55,'#5a3f24'); g.addColorStop(1,'#1c1409');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // faint stars/dust
+    ctx.fillStyle='rgba(255,240,210,.15)';
+    for(let i=0;i<26;i++){
+      const sx=(i*53)%W, sy=(i*37)%(H*0.4);
+      ctx.fillRect(sx,sy,1.4,1.4);
+    }
+  }
+  function drawTerrain(){
+    ctx.beginPath();
+    ctx.moveTo(0,H);
+    for(let i=0;i<=POINTS;i++) ctx.lineTo(i*STEP_X, terrain[i]);
+    ctx.lineTo(W,H); ctx.closePath();
+    const g = ctx.createLinearGradient(0,H*0.4,0,H);
+    g.addColorStop(0,'#5a4326'); g.addColorStop(1,'#241a0e');
+    ctx.fillStyle=g; ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0,terrain[0]);
+    for(let i=1;i<=POINTS;i++) ctx.lineTo(i*STEP_X, terrain[i]);
+    ctx.strokeStyle='rgba(160,200,120,.5)'; ctx.lineWidth=2.5; ctx.stroke();
+  }
+  function drawTank(team){
+    const t = tanks[team];
+    if(t.hp<=0) return;
+    const col = team==='red' ? '#c8402a' : '#2a5fc8';
+    const dark = team==='red' ? '#7a2418' : '#173a80';
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ctx.beginPath(); ctx.ellipse(0,TANK_H*0.7,TANK_W*0.7,4,0,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fill();
+    ctx.fillStyle=col; ctx.strokeStyle=dark; ctx.lineWidth=1.6;
+    ctx.beginPath(); ctx.roundRect(-TANK_W/2,-TANK_H/2,TANK_W,TANK_H,4); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,-TANK_H/2,6,0,Math.PI*2); ctx.fillStyle=col; ctx.fill(); ctx.stroke();
+    const barrelDir = team==='red'?1:-1;
+    const isMine = myTurnToControl(team) && turn===team && phase==='battle';
+    const angle = isMine ? Number(angleSlider.value) : 45;
+    const rad = angle*Math.PI/180;
+    const bx = Math.cos(rad)*18*barrelDir, by = -Math.sin(rad)*18;
+    ctx.strokeStyle=dark; ctx.lineWidth=3.5;
+    ctx.beginPath(); ctx.moveTo(0,-TANK_H/2); ctx.lineTo(bx,-TANK_H/2+by); ctx.stroke();
+    ctx.restore();
+  }
+  function drawTrajectoryPreview(){
+    if(phase!=='battle' || shell || !myTurnToControl(turn)) return;
+    const pts = simulateTrajectory(turn, Number(angleSlider.value), Number(powerSlider.value));
+    ctx.setLineDash([5,6]);
+    ctx.beginPath();
+    pts.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
+    ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  function drawShell(){
+    if(!shell) return;
+    const col = (SHELL_TYPES[shell.shellType] || SHELL_TYPES.medium).color;
+    ctx.beginPath(); ctx.arc(shell.x,shell.y,4,0,Math.PI*2);
+    ctx.fillStyle=col; ctx.fill();
+    ctx.beginPath(); ctx.arc(shell.x,shell.y,7,0,Math.PI*2);
+    ctx.strokeStyle=col; ctx.globalAlpha=.4; ctx.lineWidth=2; ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+
+  function render(){
+    ctx.save();
+    if(shake.time>0){
+      const m = shake.mag*(shake.time);
+      ctx.translate((Math.random()-0.5)*m, (Math.random()-0.5)*m);
+    }
+    drawSky();
+    drawTerrain();
+    drawTank('red'); drawTank('blue');
+    drawTrajectoryPreview();
+    drawShell();
+    drawParticles();
+    ctx.restore();
+  }
+
+  // ---------- physics tick (host / local only) ----------
+  let lastT=null;
+  function tick(t){
+    if(lastT===null) lastT=t;
+    let dt=(t-lastT)/1000; dt=Math.min(dt,0.032); lastT=t;
+
+    if(shell && net.mode!=='guest'){
+      shell.vx += wind*0.5*dt;
+      shell.vy += GRAVITY*dt;
+      shell.x += shell.vx*dt;
+      shell.y += shell.vy*dt;
+
+      let hitTeam=null;
+      const enemyTeam = shell.team==='red' ? 'blue' : 'red';
+      const tk = tanks[enemyTeam];
+      if(Math.abs(shell.x-tk.x) < TANK_W*0.6 && Math.abs(shell.y-tk.y) < TANK_H*1.4) hitTeam=enemyTeam;
+      if(hitTeam){
+        resolveImpact(shell.x, shell.y, hitTeam, shell.shellType);
+      } else if(shell.y >= terrainHeightAt(shell.x)){
+        resolveImpact(shell.x, shell.y, null, shell.shellType);
+      } else if(shell.x<-20 || shell.x>W+20 || shell.y>H+40){
+        shell = null;
+        turn = turn==='red' ? 'blue' : 'red';
+        wind = Math.round(rand(-30,30));
+        document.getElementById('subtitle').textContent = (turn==='red'?document.getElementById('redName').textContent:document.getElementById('blueName').textContent) + "'s turn — missed!";
+        updateHUD(); refreshAimPanel(); broadcastState();
+      }
+      if(net.mode==='host' && net.connected) broadcastState();
+    }
+
+    updateParticles(dt); updateShake(dt);
+    render();
+    requestAnimationFrame(tick);
+  }
+
+  fullReset();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
