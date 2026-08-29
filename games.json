@@ -7,5 +7,33 @@
     "icon": "\u2694\ufe0f",
     "path": "games/soldier-wars/index.html",
     "status": "available"
+  },
+  {
+    "id": "tank-duel",
+    "title": "Tank Duel",
+    "subtitle": "Artillery duel across destructible terrain",
+    "tag": "2-Player \u00b7 Online",
+    "icon": "\ud83d\udca5",
+    "path": "games/tank-duel/index.html",
+    "status": "available"
+  },
+  {
+    "id": "hokm-duel",
+    "title": "Hokm Duel",
+    "subtitle": "2-player take on the classic Persian card game",
+    "tag": "2-Player \u00b7 Online \u00b7 vs Computer",
+    "icon": "\ud83c\udccf",
+    "path": "games/hokm-duel/index.html",
+    "status": "available"
+  },
+  {
+    "id": "hokm-4p",
+    "title": "Hokm — 4 Players",
+    "subtitle": "The full traditional game \u2014 you and a computer partner vs two computer opponents",
+    "tag": "vs Computer \u00b7 Partnerships",
+    "icon": "\ud83c\udf74",
+    "path": "games/hokm-4p/index.html",
+    "status": "available",
+    "isNew": true
   }
 ]
