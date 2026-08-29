@@ -359,7 +359,7 @@
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify(Object.assign({
-          event,
+          event, game:'soldier-wars',
           telegramId: tgUser ? tgUser.id : null,
           nickname: net.myName || 'Player',
           opponentNickname: net.opponentName || null,
