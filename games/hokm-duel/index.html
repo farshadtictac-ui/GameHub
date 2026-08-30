@@ -39,6 +39,8 @@ h1{ font-size:20px; margin:12px 0 2px; color:var(--brass); text-shadow:0 2px 3px
 .score-block.right{ align-items:flex-end; text-align:right; }
 .score-label{ font-weight:bold; font-size:11.5px; }
 .score-num{ font-size:15px; font-weight:bold; color:var(--brass); }
+.rounds-label{ font-size:10.5px; color:#c9dcc9; margin-top:1px; }
+.rounds-label b{ color:var(--brass); }
 @keyframes turnPulse{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.35); } }
 .turn-badge{ padding:4px 11px; border-radius:20px; font-size:11.5px; font-weight:bold; white-space:nowrap; animation:turnPulse 1.6s ease-in-out infinite; }
 .turn-badge.red{background:var(--red); box-shadow:0 0 10px var(--red);}
@@ -333,11 +335,13 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   <div class="score-block">
     <div class="score-label" style="color:var(--red);"><span id="redName">Red</span></div>
     <div class="score-num"><span id="redTricks">0</span> tricks</div>
+    <div class="rounds-label">🏆 <b id="redRounds">0</b> rounds won</div>
   </div>
   <div id="turnBadge" class="turn-badge red">Red</div>
   <div class="score-block right">
     <div class="score-label" style="color:var(--blue);"><span id="blueName">Blue</span></div>
     <div class="score-num"><span id="blueTricks">0</span> tricks</div>
+    <div class="rounds-label">🏆 <b id="blueRounds">0</b> rounds won</div>
   </div>
 </div>
 
@@ -1162,6 +1166,8 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   function updateHUD(){
     document.getElementById('redTricks').textContent = tricksWon.red;
     document.getElementById('blueTricks').textContent = tricksWon.blue;
+    document.getElementById('redRounds').textContent = roundsWon.red;
+    document.getElementById('blueRounds').textContent = roundsWon.blue;
     const badge = document.getElementById('turnBadge');
     badge.textContent = turn===null ? 'Resolving...' : (turn===myTeam ? 'Your Turn' : labelFor(turn)+"'s Turn");
     badge.className = 'turn-badge '+turn;
