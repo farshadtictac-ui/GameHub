@@ -214,19 +214,87 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   background:rgba(0,0,0,.4);
 }
 .back-link{ font-size:12px; color:var(--brass); text-decoration:underline; cursor:pointer; margin-top:14px; display:inline-block; }
+.lobby-choices{ display:flex; flex-direction:column; gap:10px; margin-top:6px; }
+.lobby-choices button.mainbtn{ width:100%; padding:11px 16px; }
+.name-input{
+  width:100%; font-family:inherit; font-size:15px; text-align:center;
+  padding:9px; border-radius:8px; border:2px solid var(--brass); background:#1a1108;
+  color:var(--paper); margin-bottom:12px;
+}
+.join-input{
+  width:100%; font-family:inherit; font-size:22px; letter-spacing:6px; text-align:center;
+  padding:10px; border-radius:8px; border:2px solid var(--brass); background:#1a1108;
+  color:var(--paper); margin-bottom:12px;
+}
+.code-display{
+  font-size:34px; font-weight:bold; letter-spacing:6px; color:var(--brass);
+  background:#1a1108; border-radius:10px; padding:10px 14px; margin:14px 0;
+}
+.roster-row{ display:flex; justify-content:center; gap:10px; margin:14px 0; }
+.roster-seat{
+  width:56px; padding:8px 0; border-radius:8px; border:2px solid #4a3319;
+  font-size:11px; font-weight:bold; color:#8a7550;
+}
+.roster-seat.filled{ border-color:var(--brass); color:var(--brass); background:rgba(201,162,75,.1); }
+.net-status{ font-size:12px; color:#c9dcc9; margin-top:10px; min-height:16px; }
+.conn-badge{
+  position:fixed; top:8px; right:10px; z-index:15; font-size:11px; padding:4px 9px;
+  border-radius:12px; background:rgba(0,0,0,.5); border:1px solid var(--brass); color:var(--paper); display:none;
+}
+.reconnect-banner{
+  position:fixed; top:0; left:0; right:0; z-index:25; display:none;
+  background:linear-gradient(180deg,#7a2e18,#4a1a0e); color:#ffe17a;
+  text-align:center; font-size:13px; font-weight:bold; padding:10px 14px;
+  box-shadow:0 3px 10px rgba(0,0,0,.5);
+}
+.reconnect-banner.show{ display:block; }
+.reconnect-banner .back-link{ color:#ffe17a; margin-top:6px; }
 </style>
 </head>
 <body>
 
 <a class="hub-link" href="../../index.html">← Games</a>
 
+<div class="conn-badge" id="connBadge">🟢 Connected</div>
+<div class="reconnect-banner" id="reconnectBanner">
+  <span id="reconnectText">🔄 Connection lost. Reconnecting<span>...</span></span>
+  <div><span class="back-link" id="giveUpReconnect">← Return to Menu</span></div>
+</div>
+
 <div class="overlay show" id="startOverlay">
-  <div class="panel">
+  <div class="panel" id="lobbyChoice">
     <h2>🃏 Hokm — 4 Players 🃏</h2>
-    <p>The full, traditional Hokm: you and a computer partner (North) versus two computer opponents (East &amp; West). Standard 13-card hands, first to 7 tricks wins the round.</p>
-    <button class="mainbtn" id="startBtn" style="width:100%; margin-bottom:10px;">▶️ Start Game</button>
-    <button class="mainbtn ghost" id="showHowToBtn" style="width:100%;">❓ How to Play</button>
+    <p>The full, traditional Hokm — 4 real seats, two partnerships, 13 cards each.</p>
+    <input class="name-input" id="playerNameInput" maxlength="16" placeholder="Your name">
+    <div class="lobby-choices">
+      <button class="mainbtn" id="startBtn">🤖 Play vs Computer</button>
+      <button class="mainbtn ghost" id="createRoomBtn">➕ Create Room (invite 3 friends)</button>
+      <button class="mainbtn ghost" id="showJoinBtn">🔑 Join Room (I have a code)</button>
+      <button class="mainbtn ghost" id="showHowToBtn">❓ How to Play</button>
+    </div>
     <div><a class="back-link" href="../../index.html" style="text-decoration:none;">← Back to Games</a></div>
+  </div>
+
+  <div class="panel" id="lobbyJoin" style="display:none;">
+    <h2>🔑 Join Room</h2>
+    <p>Enter the 4-digit code your friend shared with you</p>
+    <input class="join-input" id="joinCodeInput" maxlength="4" inputmode="numeric" placeholder="0000">
+    <button class="mainbtn" id="joinRoomBtn" style="width:100%;">Join</button>
+    <div><span class="back-link" id="backFromJoin">← Back</span></div>
+  </div>
+
+  <div class="panel" id="lobbyWaiting" style="display:none;">
+    <h2>Waiting for players...</h2>
+    <p>Share this code — needs 4 players total:</p>
+    <div class="code-display" id="roomCodeDisplay">----</div>
+    <div class="roster-row" id="rosterRow">
+      <div class="roster-seat" id="rosterN">N</div>
+      <div class="roster-seat" id="rosterE">E</div>
+      <div class="roster-seat" id="rosterS">S</div>
+      <div class="roster-seat" id="rosterW">W</div>
+    </div>
+    <div class="net-status" id="netStatus"></div>
+    <div><span class="back-link" id="cancelWaiting">← Cancel</span></div>
   </div>
 </div>
 
@@ -253,12 +321,12 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
 
 <div class="hud">
   <div class="score-block">
-    <div class="score-label" style="color:var(--brass);">Your Team (N+S)</div>
+    <div class="score-label" style="color:var(--brass);" id="myTeamLabel">Your Team (N+S)</div>
     <div class="score-num"><span id="nsTricks">0</span> tricks</div>
   </div>
   <div id="turnBadge" class="turn-badge">—</div>
   <div class="score-block right">
-    <div class="score-label" style="color:#8fb0e0;">Opponents (E+W)</div>
+    <div class="score-label" style="color:#8fb0e0;" id="oppTeamLabel">Opponents (E+W)</div>
     <div class="score-num"><span id="ewTricks">0</span> tricks</div>
   </div>
 </div>
@@ -368,8 +436,28 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   const NEXT_SEAT = { N:'E', E:'S', S:'W', W:'N' };
   const PARTNER = { N:'S', S:'N', E:'W', W:'E' };
   const TEAM_OF = { N:'NS', S:'NS', E:'EW', W:'EW' };
-  const SEAT_LABEL = { N:'North', E:'East', S:'You', W:'West' };
-  const HUMAN_SEAT = 'S';
+  const SEAT_LABEL = { N:'North', E:'East', S:'South', W:'West' };
+  let mySeat = 'S'; // 'S' for local/vs-computer; server-assigned for online play
+
+  // Every player sees themselves at the bottom of the table regardless of
+  // their actual assigned seat letter. These convert between "actual seat"
+  // (game logic) and "visual slot" (N/E/S/W position on THIS screen).
+  const VISUAL_OFFSET = { S:0, W:1, N:2, E:3 };
+  function visualSlotFor(actualSeat){
+    const myIdx = SEATS.indexOf(mySeat);
+    const idx = SEATS.indexOf(actualSeat);
+    const diff = (idx - myIdx + 4) % 4;
+    return ['S','W','N','E'][diff];
+  }
+  function actualSeatFor(visualSlot){
+    const myIdx = SEATS.indexOf(mySeat);
+    const idx = (myIdx + VISUAL_OFFSET[visualSlot]) % 4;
+    return SEATS[idx];
+  }
+  function displayName(actualSeat){
+    if(actualSeat===mySeat) return net.myName || 'You';
+    return net.seatNames[actualSeat] || SEAT_LABEL[actualSeat];
+  }
 
   function trickWinnerSeat(plays, trump){
     const ledSuit = plays[0].card.suit;
@@ -478,6 +566,249 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     }
   }
 
+  // ---------- multiplayer networking ----------
+  const SERVER_HOST = 'soldier-wars-server.farshad-tictac.workers.dev';
+  const net = {
+    ws:null, mode:'local', role:null, connected:false, code:null,
+    myName:'', seatNames:{}, gameStarted:false,
+    reconnectAttempts:0, reconnectTimer:null, manualExit:false
+  };
+  if(tgUser && tgUser.first_name){
+    document.getElementById('playerNameInput').value = tgUser.first_name;
+  }
+
+  function netStatus(msg){ document.getElementById('netStatus').textContent = msg || ''; }
+  function connBadge(text, show){
+    const b = document.getElementById('connBadge');
+    b.textContent = text; b.style.display = show ? 'block':'none';
+  }
+  function showReconnectBanner(text){
+    document.getElementById('reconnectText').innerHTML = text+'<span>...</span>';
+    document.getElementById('reconnectBanner').classList.add('show');
+  }
+  function hideReconnectBanner(){ document.getElementById('reconnectBanner').classList.remove('show'); }
+  function send(obj){ if(net.ws && net.ws.readyState===WebSocket.OPEN) net.ws.send(JSON.stringify(obj)); }
+  function sendHello(){ send({type:'hello', name: net.myName || 'Player', seat: mySeat}); }
+  function logEvent(event, extra){
+    if(net.mode!=='host' && net.mode!=='guest') return;
+    try{
+      fetch('https://'+SERVER_HOST+'/log', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(Object.assign({
+          event, game:'hokm-4p',
+          telegramId: tgUser ? tgUser.id : null,
+          nickname: net.myName || 'Player',
+          mode: 'room4'
+        }, extra||{}))
+      }).catch(()=>{});
+    }catch(e){}
+  }
+
+  function wireSocket(ws){
+    net.ws = ws;
+    ws.addEventListener('open', ()=>{
+      net.connected = true; net.reconnectAttempts = 0;
+      if(net.reconnectTimer){ clearTimeout(net.reconnectTimer); net.reconnectTimer=null; }
+      hideReconnectBanner();
+    });
+    ws.addEventListener('message', (ev)=>{
+      let msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
+      handleNetMessage(msg);
+    });
+    ws.addEventListener('close', ()=> onNetDisconnect());
+    ws.addEventListener('error', ()=> onNetDisconnect(true));
+  }
+
+  function openSocket4(role, code){
+    net.role = role;
+    const url = 'wss://'+SERVER_HOST+'/connect4?role='+role+'&code='+code;
+    const ws = new WebSocket(url);
+    net.code = code;
+    wireSocket(ws);
+  }
+
+  function attemptReconnect(){
+    if(!net.code || !net.role){ showReconnectBanner('🔴 Connection lost'); return; }
+    net.reconnectAttempts++;
+    if(net.reconnectAttempts > 20){ showReconnectBanner('🔴 Could not reconnect'); return; }
+    showReconnectBanner('🔄 Reconnecting (attempt '+net.reconnectAttempts+')');
+    net.reconnectTimer = setTimeout(()=>{ openSocket4(net.role, net.code); }, 1800);
+  }
+
+  function onNetDisconnect(isError){
+    if(net.mode==='local' || net.manualExit) return;
+    net.connected = false;
+    if(!net.gameStarted){
+      connBadge('', false);
+      netStatus(isError ? 'Could not connect. Try again.' : 'Connection closed.');
+      backToLobbyChoice();
+      net.mode='local';
+      return;
+    }
+    connBadge('🔴 Disconnected', true);
+    if(net.code) attemptReconnect();
+    else showReconnectBanner('🔴 Connection lost');
+  }
+
+  function backToLobbyChoice(){
+    document.getElementById('startOverlay').classList.add('show');
+    document.getElementById('lobbyChoice').style.display='block';
+    document.getElementById('lobbyJoin').style.display='none';
+    document.getElementById('lobbyWaiting').style.display='none';
+  }
+
+  document.getElementById('giveUpReconnect').addEventListener('click', ()=>{
+    net.manualExit = true;
+    if(net.reconnectTimer) clearTimeout(net.reconnectTimer);
+    if(net.ws) net.ws.close();
+    net.mode='local'; net.connected=false; net.gameStarted=false; net.manualExit=false;
+    hideReconnectBanner(); connBadge('', false);
+    document.getElementById('overlay').classList.remove('show');
+    backToLobbyChoice();
+    netStatus('');
+  });
+
+  async function createRoom4(){
+    net.myName = document.getElementById('playerNameInput').value.trim();
+    netStatus('Creating room...');
+    try{
+      const res = await fetch('https://'+SERVER_HOST+'/create4');
+      const data = await res.json();
+      if(!data.code){ netStatus('Could not create a room. Try again.'); return; }
+      net.mode='host'; mySeat='N';
+      document.getElementById('roomCodeDisplay').textContent = data.code;
+      document.getElementById('lobbyChoice').style.display='none';
+      document.getElementById('lobbyWaiting').style.display='block';
+      openSocket4('host', data.code);
+    }catch(e){ netStatus('Network error. Check your connection.'); }
+  }
+  function joinRoom4(code){
+    if(!/^\d{4}$/.test(code)){ netStatus('Enter the 4-digit code.'); return; }
+    net.myName = document.getElementById('playerNameInput').value.trim();
+    net.mode='guest';
+    document.getElementById('lobbyChoice').style.display='none';
+    document.getElementById('lobbyJoin').style.display='none';
+    document.getElementById('lobbyWaiting').style.display='block';
+    document.getElementById('roomCodeDisplay').textContent = code;
+    netStatus('Connecting...');
+    openSocket4('guest', code);
+  }
+
+  function updateRosterUI(roster){
+    SEATS.forEach(s=>{
+      const el = document.getElementById('roster'+s);
+      if(el) el.classList.toggle('filled', !!roster[s]);
+    });
+  }
+
+  function handleNetMessage(msg){
+    if(msg.type==='seat_assigned'){
+      mySeat = msg.seat;
+      sendHello();
+      return;
+    }
+    if(msg.type==='roster'){
+      updateRosterUI(msg.roster);
+      const allFilled = SEATS.every(s=>msg.roster[s]);
+      if(allFilled && net.mode==='host' && !net.gameStarted){
+        net.gameStarted = true;
+        document.getElementById('startOverlay').classList.remove('show');
+        connBadge('🟢 Connected', true);
+        fullReset();
+        logEvent('played');
+      } else if(allFilled && net.mode==='guest'){
+        netStatus('All 4 players connected — starting...');
+      } else if(net.mode==='guest'){
+        const count = SEATS.filter(s=>msg.roster[s]).length;
+        netStatus('Waiting for players... ('+count+'/4)');
+      }
+      return;
+    }
+    if(msg.type==='hello'){
+      net.seatNames[msg.seat] = msg.name || SEAT_LABEL[msg.seat];
+      updateHUD(); render();
+      return;
+    }
+    if(msg.type==='seat_left'){
+      if(net.gameStarted){ showReconnectBanner('⏳ Waiting for a player to reconnect'); }
+      return;
+    }
+    if(msg.type==='state'){
+      const firstTime = !net.gameStarted;
+      applyState(msg);
+      net.gameStarted = true;
+      if(firstTime) logEvent('played');
+      if(net.mode==='guest'){
+        connBadge('🟢 Connected', true); hideReconnectBanner();
+        document.getElementById('startOverlay').classList.remove('show');
+      }
+      return;
+    }
+    if(net.mode!=='host') return;
+    if(msg.type==='guestChooseTrump') hostHandleGuestTrump(msg.seat, msg.suit);
+    else if(msg.type==='guestPlayCard') hostHandleGuestPlay(msg.seat, msg.suit, msg.rank);
+    else if(msg.type==='guestNextRound'){ startNewRound(); }
+    else if(msg.type==='guestRestart'){ fullReset(); }
+  }
+
+  function broadcastState(){
+    if(net.mode!=='host' || !net.connected) return;
+    SEATS.forEach(s=>{
+      if(s===mySeat) return; // that's me, the host — I render from live state directly
+      const oppCounts = {};
+      SEATS.forEach(x=> oppCounts[x] = hands[x].length);
+      send({
+        type:'state', toSeat:s,
+        phase, hakem, trump, turn, trick, tricksWon, roundsWon, winner:lastWinner,
+        myHand: hands[s], oppCounts,
+        subtitle: document.getElementById('subtitle').textContent,
+        hint: document.getElementById('hint').textContent,
+        resultTitle: document.getElementById('resultTitle').textContent,
+        resultText: document.getElementById('resultText').textContent
+      });
+    });
+  }
+  // NOTE: the relay forwards every message to every OTHER seat, so a guest
+  // will also see 'state' messages meant for other seats. Guests must
+  // ignore any state message not addressed to their own seat.
+
+  let lastAppliedPhase = null;
+  function applyState(s){
+    if(s.toSeat !== mySeat) return; // not meant for me
+    phase=s.phase; hakem=s.hakem; trump=s.trump; turn=s.turn;
+    roundsWon=s.roundsWon; tricksWon=s.tricksWon; trick=s.trick; lastWinner=s.winner;
+    hands[mySeat] = s.myHand;
+    SEATS.forEach(x=>{ if(x!==mySeat) hands[x] = new Array(s.oppCounts[x]||0).fill(null); });
+    document.getElementById('subtitle').textContent = s.subtitle;
+    setHint(s.hint);
+    if(phase==='gameover' && lastAppliedPhase!=='gameover'){
+      document.getElementById('resultTitle').textContent = s.resultTitle;
+      document.getElementById('resultText').textContent = s.resultText;
+      document.getElementById('overlay').classList.add('show');
+      if(s.winner && s.winner!=='draw'){
+        const myTeamWon = TEAM_OF[mySeat]===s.winner;
+        if(myTeamWon){ sfxWin(); launchConfetti(); }
+        logEvent('result', { result: myTeamWon ? 'win':'loss' });
+      }
+    } else if(phase!=='gameover'){
+      document.getElementById('overlay').classList.remove('show');
+    }
+    lastAppliedPhase = phase;
+    updateHUD(); render();
+  }
+
+  function hostHandleGuestTrump(seat, suit){
+    if(phase!=='trump' || turn!==seat) return;
+    if(!hands[seat].some(c=>c.suit===suit)) return;
+    chooseTrump(suit);
+  }
+  function hostHandleGuestPlay(seat, suit, rank){
+    if(phase!=='playing' || turn!==seat) return;
+    const card = hands[seat].find(c=>c.suit===suit && c.rank===rank);
+    if(!card) return;
+    playCard(seat, card);
+  }
+
   // ---------- game state ----------
   let hands = { N:[], E:[], S:[], W:[] };
   let hakem = 'S';
@@ -492,19 +823,22 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
 
   function setHint(t){ document.getElementById('hint').textContent = t; }
 
+  let pendingDeck = [];
   function startNewRound(nextHakem){
     const deck = buildShuffledDeck();
-    hands.N = deck.slice(0,13); hands.E = deck.slice(13,26);
-    hands.S = deck.slice(26,39); hands.W = deck.slice(39,52);
-    SEATS.forEach(s=>sortHand(hands[s]));
-    trick=[]; tricksWon={NS:0,EW:0}; trump=null;
     hakem = nextHakem || NEXT_SEAT[hakem] || 'S';
+    hands = {N:[],E:[],S:[],W:[]};
+    hands[hakem] = deck.slice(0,5);
+    pendingDeck = deck.slice(5);
+    sortHand(hands[hakem]);
+    trick=[]; tricksWon={NS:0,EW:0}; trump=null;
     turn = hakem;
     phase = 'trump';
     document.getElementById('overlay').classList.remove('show');
-    document.getElementById('subtitle').textContent = (hakem===HUMAN_SEAT ? "You are" : SEAT_LABEL[hakem]+' is') + ' the hakem — choosing trump...';
-    setHint(hakem===HUMAN_SEAT ? 'Pick a trump suit' : 'Waiting for the hakem to choose trump...');
+    document.getElementById('subtitle').textContent = (hakem===mySeat ? "You are" : displayName(hakem)+' is') + ' the hakem — dealt 5 cards to choose trump...';
+    setHint(hakem===mySeat ? 'Pick a trump suit from your 5 cards' : 'Waiting for the hakem to choose trump...');
     updateHUD(); render();
+    if(net.mode==='host') broadcastState();
     maybeRunAI();
   }
   function fullReset(){
@@ -514,10 +848,21 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   }
 
   function chooseTrump(suit){
-    trump = suit; phase='playing';
-    document.getElementById('subtitle').textContent = 'Trump is '+SUIT_SYMBOL[suit]+' — '+(hakem===HUMAN_SEAT?'you lead':SEAT_LABEL[hakem]+' leads')+' the first trick';
-    setHint(turn===HUMAN_SEAT ? 'Choose a card to lead' : 'Waiting...');
+    trump = suit;
+    const others = SEATS.filter(s=>s!==hakem);
+    hands[hakem] = hands[hakem].concat(pendingDeck.slice(0,8));
+    let idx = 8;
+    others.forEach(s=>{
+      hands[s] = pendingDeck.slice(idx, idx+13);
+      idx += 13;
+    });
+    pendingDeck = [];
+    SEATS.forEach(s=>sortHand(hands[s]));
+    phase='playing';
+    document.getElementById('subtitle').textContent = 'Trump is '+SUIT_SYMBOL[suit]+' — the rest of the deck is dealt — '+(hakem===mySeat?'you lead':displayName(hakem)+' leads')+' the first trick';
+    setHint(turn===mySeat ? 'Choose a card to lead' : 'Waiting...');
     updateHUD(); render();
+    if(net.mode==='host') broadcastState();
     maybeRunAI();
   }
 
@@ -535,8 +880,9 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
 
     if(trick.length<4){
       turn = NEXT_SEAT[seat];
-      document.getElementById('subtitle').textContent = (turn===HUMAN_SEAT?'Your':SEAT_LABEL[turn]+"'s") + ' turn';
+      document.getElementById('subtitle').textContent = (turn===mySeat?'Your':displayName(turn)+"'s") + ' turn';
       updateHUD(); render();
+      if(net.mode==='host') broadcastState();
       maybeRunAI();
     } else {
       turn = null; // block any further input while this trick resolves
@@ -544,27 +890,30 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       const winTeam = TEAM_OF[winnerSeat];
       tricksWon[winTeam]++;
       sfxTrick(winTeam==='NS');
-      const winCardEl = document.getElementById('card'+winnerSeat);
+      const winVisual = visualSlotFor(winnerSeat);
+      const winCardEl = document.getElementById('card'+winVisual);
       winCardEl.classList.remove('winner-glow'); void winCardEl.offsetWidth; winCardEl.classList.add('winner-glow');
       sparkleBurst(winCardEl);
       const tableEl = document.querySelector('.table-wrap');
       tableEl.classList.remove('table-flash'); void tableEl.offsetWidth; tableEl.classList.add('table-flash');
       updateHUD(); render();
+      if(net.mode==='host') broadcastState();
 
       setTimeout(()=>{
-        const flyClass = 'fly-'+winnerSeat;
-        const order = ['N','E','S','W'].sort((a,b)=> (a===winnerSeat?-1:0)-(b===winnerSeat?-1:0));
-        order.forEach((s,i)=>{
-          setTimeout(()=> document.getElementById('card'+s).classList.add(flyClass), i*70);
+        const flyClass = 'fly-'+winVisual;
+        const order = ['N','E','S','W'].sort((a,b)=> (a===winVisual?-1:0)-(b===winVisual?-1:0));
+        order.forEach((v,i)=>{
+          setTimeout(()=> document.getElementById('card'+v).classList.add(flyClass), i*70);
         });
         setTimeout(()=>{
-          ['N','E','S','W'].forEach(s=> document.getElementById('card'+s).classList.remove(flyClass,'winner-glow'));
+          ['N','E','S','W'].forEach(v=> document.getElementById('card'+v).classList.remove(flyClass,'winner-glow'));
           trick = [];
           turn = winnerSeat;
           const ended = checkRoundEnd();
           if(!ended){
-            document.getElementById('subtitle').textContent = (winnerSeat===HUMAN_SEAT?'You won':SEAT_LABEL[winnerSeat]+' won')+' the trick — '+(turn===HUMAN_SEAT?'your':SEAT_LABEL[turn]+"'s")+' lead';
+            document.getElementById('subtitle').textContent = (winnerSeat===mySeat?'You won':displayName(winnerSeat)+' won')+' the trick — '+(turn===mySeat?'your':displayName(turn)+"'s")+' lead';
             updateHUD(); render();
+            if(net.mode==='host') broadcastState();
             maybeRunAI();
           }
         }, 740);
@@ -584,24 +933,28 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   function endRound(winner){
     phase='gameover';
     lastWinner = winner;
+    const myTeam = TEAM_OF[mySeat];
     if(winner!=='draw'){
       roundsWon[winner]++;
-      const wName = winner==='NS' ? 'Your Team' : 'Opponents';
-      document.getElementById('resultTitle').textContent = (winner==='NS'?'🏆':'😔')+' '+wName+' Win the Round!';
+      const wName = winner===myTeam ? 'Your Team' : 'Opponents';
+      document.getElementById('resultTitle').textContent = (winner===myTeam?'🏆':'😔')+' '+wName+' Win the Round!';
       document.getElementById('resultText').textContent = wName+' won '+tricksWon[winner]+' of the 13 tricks. (Round win #'+roundsWon[winner]+')';
-      if(winner==='NS'){ sfxWin(); launchConfetti(); }
+      if(winner===myTeam){ sfxWin(); launchConfetti(); }
+      if(net.mode==='host' || net.mode==='guest'){ logEvent('result', { result: winner===myTeam?'win':'loss' }); }
     } else {
       document.getElementById('resultTitle').textContent = '🤝 Draw!';
       document.getElementById('resultText').textContent = 'It ended even.';
     }
     document.getElementById('overlay').classList.add('show');
     updateHUD();
+    if(net.mode==='host') broadcastState();
   }
 
   function maybeRunAI(){
-    if(phase==='trump' && turn!==HUMAN_SEAT){
+    if(net.mode!=='local') return;
+    if(phase==='trump' && turn!==mySeat){
       setTimeout(()=>{ chooseTrump(aiChooseTrump(hands[turn])); }, 700);
-    } else if(phase==='playing' && turn!==HUMAN_SEAT){
+    } else if(phase==='playing' && turn!==mySeat){
       setTimeout(()=>{
         const seat = turn;
         const card = aiChooseCard(seat, hands[seat], trick, trump);
@@ -612,23 +965,53 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
 
   // ---------- input ----------
   function onCardClick(card){
-    if(phase!=='playing' || turn!==HUMAN_SEAT) return;
+    if(phase!=='playing' || turn!==mySeat) return;
     const ledSuitNow = trick.length ? trick[0].card.suit : null;
-    const allowed = playableCards(hands[HUMAN_SEAT], ledSuitNow);
+    const allowed = playableCards(hands[mySeat], ledSuitNow);
     if(!allowed.some(c=>c.suit===card.suit && c.rank===card.rank)){ setHint('You must follow suit!'); return; }
-    playCard(HUMAN_SEAT, card);
+    if(net.mode==='guest'){ send({type:'guestPlayCard', seat:mySeat, suit:card.suit, rank:card.rank}); return; }
+    playCard(mySeat, card);
   }
   document.querySelectorAll('.suit-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      if(phase!=='trump' || turn!==HUMAN_SEAT) return;
+      if(phase!=='trump' || turn!==mySeat) return;
+      if(!hands[mySeat].some(c=>c.suit===btn.dataset.suit)) return;
+      if(net.mode==='guest'){ send({type:'guestChooseTrump', seat:mySeat, suit:btn.dataset.suit}); return; }
       chooseTrump(btn.dataset.suit);
     });
   });
-  document.getElementById('restartBtn').addEventListener('click', fullReset);
-  document.getElementById('playAgainBtn').addEventListener('click', ()=> startNewRound());
+  function requestRestart(){
+    if(net.mode==='guest'){ send({type:'guestRestart'}); return; }
+    fullReset();
+  }
+  function requestNextRound(){
+    if(net.mode==='guest'){ send({type:'guestNextRound'}); return; }
+    startNewRound();
+  }
+  document.getElementById('restartBtn').addEventListener('click', requestRestart);
+  document.getElementById('playAgainBtn').addEventListener('click', requestNextRound);
   document.getElementById('startBtn').addEventListener('click', ()=>{
+    net.mode='local'; mySeat='S';
     document.getElementById('startOverlay').classList.remove('show');
     fullReset();
+  });
+  document.getElementById('createRoomBtn').addEventListener('click', createRoom4);
+  document.getElementById('showJoinBtn').addEventListener('click', ()=>{
+    document.getElementById('lobbyChoice').style.display='none';
+    document.getElementById('lobbyJoin').style.display='block';
+  });
+  document.getElementById('backFromJoin').addEventListener('click', ()=>{
+    document.getElementById('lobbyJoin').style.display='none';
+    document.getElementById('lobbyChoice').style.display='block';
+  });
+  document.getElementById('joinRoomBtn').addEventListener('click', ()=>{
+    joinRoom4(document.getElementById('joinCodeInput').value.trim());
+  });
+  document.getElementById('cancelWaiting').addEventListener('click', ()=>{
+    if(net.ws) net.ws.close();
+    net.mode='local'; net.connected=false;
+    backToLobbyChoice();
+    netStatus('');
   });
   document.getElementById('showHowToBtn').addEventListener('click', ()=>{ document.getElementById('howToOverlay').classList.add('show'); });
   document.getElementById('closeHowToBtn').addEventListener('click', ()=>{ document.getElementById('howToOverlay').classList.remove('show'); });
@@ -646,10 +1029,14 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   }
 
   function updateHUD(){
-    document.getElementById('nsTricks').textContent = tricksWon.NS;
-    document.getElementById('ewTricks').textContent = tricksWon.EW;
+    const myTeam = TEAM_OF[mySeat];
+    const oppTeam = myTeam==='NS' ? 'EW' : 'NS';
+    document.getElementById('myTeamLabel').textContent = 'Your Team ('+(myTeam==='NS'?'N+S':'E+W')+')';
+    document.getElementById('oppTeamLabel').textContent = 'Opponents ('+(oppTeam==='NS'?'N+S':'E+W')+')';
+    document.getElementById('nsTricks').textContent = tricksWon[myTeam];
+    document.getElementById('ewTricks').textContent = tricksWon[oppTeam];
     const badge = document.getElementById('turnBadge');
-    badge.textContent = phase==='gameover' ? '—' : (turn===null ? 'Resolving...' : (turn===HUMAN_SEAT ? 'Your Turn' : SEAT_LABEL[turn]+"'s Turn"));
+    badge.textContent = phase==='gameover' ? '—' : (turn===null ? 'Resolving...' : (turn===mySeat ? 'Your Turn' : displayName(turn)+"'s Turn"));
     const hokmEl = document.getElementById('hokmSymbol');
     if(trump){
       hokmEl.textContent = SUIT_SYMBOL[trump];
@@ -659,38 +1046,49 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       hokmEl.textContent = '?';
       hokmEl.classList.add('pending');
     }
-    ['N','E','S','W'].forEach(s=>{
-      const nameEl = document.getElementById('name'+s);
-      if(nameEl) nameEl.classList.toggle('active', turn===s && phase!=='gameover');
+    ['N','E','S','W'].forEach(visual=>{
+      const actual = actualSeatFor(visual);
+      const nameEl = document.getElementById('name'+visual);
+      if(nameEl) nameEl.classList.toggle('active', turn===actual && phase!=='gameover');
     });
   }
 
   function render(){
-    document.getElementById('trumpPicker').style.display = (phase==='trump' && turn===HUMAN_SEAT) ? 'block' : 'none';
+    const showTrumpPicker = phase==='trump' && turn===mySeat;
+    document.getElementById('trumpPicker').style.display = showTrumpPicker ? 'block' : 'none';
+    if(showTrumpPicker){
+      const mySuits = new Set(hands[mySeat].map(c=>c.suit));
+      document.querySelectorAll('.suit-btn').forEach(btn=>{
+        btn.disabled = !mySuits.has(btn.dataset.suit);
+        btn.style.opacity = btn.disabled ? '.3' : '1';
+      });
+    }
 
-    ['N','E','W'].forEach(s=>{
-      const row = document.getElementById('back'+s);
-      const count = hands[s].length;
+    ['N','E','W'].forEach(visual=>{
+      const actual = actualSeatFor(visual);
+      const row = document.getElementById('back'+visual);
+      const count = hands[actual].length;
       row.innerHTML = Array.from({length:Math.min(count,9)}).map(()=>'<div class="mini-back"></div>').join('');
     });
-    document.getElementById('nameN').textContent = 'North (partner)'+(hakem==='N'?' 👑':'');
-    document.getElementById('nameE').textContent = 'East'+(hakem==='E'?' 👑':'');
-    document.getElementById('nameW').textContent = 'West'+(hakem==='W'?' 👑':'');
-    document.getElementById('nameS').textContent = 'You (South)'+(hakem==='S'?' 👑':'');
+    const nActual = actualSeatFor('N'), eActual = actualSeatFor('E'), wActual = actualSeatFor('W'), sActual = actualSeatFor('S');
+    document.getElementById('nameN').textContent = displayName(nActual)+(TEAM_OF[nActual]===TEAM_OF[mySeat]&&nActual!==mySeat?' (partner)':'')+(hakem===nActual?' 👑':'');
+    document.getElementById('nameE').textContent = displayName(eActual)+(hakem===eActual?' 👑':'');
+    document.getElementById('nameW').textContent = displayName(wActual)+(hakem===wActual?' 👑':'');
+    document.getElementById('nameS').textContent = 'You'+(hakem===sActual?' 👑':'');
 
     const bySeat = {};
     trick.forEach(p=> bySeat[p.seat]=p.card);
-    setCardEl(document.getElementById('cardN'), bySeat.N || null);
-    setCardEl(document.getElementById('cardE'), bySeat.E || null);
-    setCardEl(document.getElementById('cardS'), bySeat.S || null);
-    setCardEl(document.getElementById('cardW'), bySeat.W || null);
+    ['N','E','S','W'].forEach(visual=>{
+      const actual = actualSeatFor(visual);
+      setCardEl(document.getElementById('card'+visual), bySeat[actual] || null);
+    });
     document.getElementById('grid4').style.display = phase==='playing' ? 'grid' : (phase==='trump' ? 'none' : 'grid');
 
     const row = document.getElementById('myHandRow');
     row.innerHTML = '';
-    const myHand = hands[HUMAN_SEAT];
+    const myHand = hands[mySeat];
     const ledSuitNow = trick.length ? trick[0].card.suit : null;
-    const canPlay = phase==='playing' && turn===HUMAN_SEAT;
+    const canPlay = phase==='playing' && turn===mySeat;
     const allowed = canPlay ? playableCards(myHand, ledSuitNow) : [];
     myHand.forEach(card=>{
       const el = document.createElement('div');
