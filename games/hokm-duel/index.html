@@ -43,6 +43,7 @@ h1{ font-size:20px; margin:12px 0 2px; color:var(--brass); text-shadow:0 2px 3px
 .turn-badge{ padding:4px 11px; border-radius:20px; font-size:11.5px; font-weight:bold; white-space:nowrap; animation:turnPulse 1.6s ease-in-out infinite; }
 .turn-badge.red{background:var(--red); box-shadow:0 0 10px var(--red);}
 .turn-badge.blue{background:var(--blue); box-shadow:0 0 10px var(--blue);}
+
 .table-wrap{
   position:relative;
   width:min(94vw, 520px); border-radius:14px; padding:14px 12px 10px;
@@ -72,6 +73,7 @@ h1{ font-size:20px; margin:12px 0 2px; color:var(--brass); text-shadow:0 2px 3px
   font-size:8px; color:rgba(201,162,75,.55);
 }
 .opp-label{ font-size:11.5px; color:#c9dcc9; white-space:nowrap; }
+
 .trump-badge{
   text-align:center; font-size:13px; font-weight:bold; color:var(--brass);
   margin-bottom:10px; letter-spacing:.5px;
@@ -85,11 +87,13 @@ h1{ font-size:20px; margin:12px 0 2px; color:var(--brass); text-shadow:0 2px 3px
 .hokm-badge .hokm-label{ font-size:11px; letter-spacing:5px; color:var(--brass); font-weight:bold; }
 .hokm-badge .hokm-symbol{ font-size:40px; line-height:1.1; text-shadow:0 3px 6px rgba(0,0,0,.6); }
 .hokm-badge .hokm-symbol.pending{ font-size:22px; color:#8a7550; }
+
 .stage{
   position:relative; min-height:172px;
   display:flex; align-items:center; justify-content:center;
 }
 .stage-panel{ width:100%; }
+
 .trick-area{
   display:flex; justify-content:center; align-items:center; gap:20px; min-height:74px; margin-bottom:6px;
 }
@@ -133,6 +137,7 @@ h1{ font-size:20px; margin:12px 0 2px; color:var(--brass); text-shadow:0 2px 3px
   position:absolute; font-size:14px; pointer-events:none; z-index:5;
   animation: sparklePop .7s ease-out forwards;
 }
+
 @keyframes cardIn{
   0%{ transform:scale(.35) translateY(18px) rotate(-8deg); opacity:0; }
   70%{ transform:scale(1.08) translateY(-3px) rotate(2deg); opacity:1; }
@@ -145,6 +150,7 @@ h1{ font-size:20px; margin:12px 0 2px; color:var(--brass); text-shadow:0 2px 3px
   100%{ box-shadow: 0 10px 26px rgba(0,0,0,.55), inset 0 0 30px rgba(0,0,0,.35), inset 0 0 0px rgba(201,162,75,0); }
 }
 .table-flash{ animation: tableGlow .6s ease-out; }
+
 .trump-picker{ text-align:center; padding:6px 0 4px; }
 .trump-picker p{ font-size:13px; margin:0 0 10px; color:#e5d8bf; }
 .suit-btn-row{ display:flex; justify-content:center; gap:10px; }
@@ -156,6 +162,7 @@ h1{ font-size:20px; margin:12px 0 2px; color:var(--brass); text-shadow:0 2px 3px
 .suit-btn:active{ transform:translateY(2px); box-shadow:none; }
 .suit-btn.S,.suit-btn.C{ color:#1a1108; }
 .suit-btn.H,.suit-btn.D{ color:var(--red); }
+
 .my-hand-wrap{ width:min(94vw, 520px); }
 .my-hand-label{ font-size:11.5px; color:#c9dcc9; margin:2px 4px 6px; }
 .my-hand-row{
@@ -189,6 +196,7 @@ h1{ font-size:20px; margin:12px 0 2px; color:var(--brass); text-shadow:0 2px 3px
   background:var(--red); color:#fff; border-radius:50%; font-size:13px; font-weight:bold;
   display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,.6);
 }
+
 .hint{ text-align:center; font-size:12px; color:#c9dcc9; margin-top:4px; min-height:16px; padding:0 10px;}
 .btnrow{ margin:10px 0 4px; display:flex; gap:10px; }
 button.mainbtn{
@@ -200,6 +208,7 @@ button.mainbtn{
 button.mainbtn:active{ transform:translateY(2px); box-shadow:0 1px 0 #5c451c; }
 button.mainbtn:disabled{ opacity:.4; cursor:not-allowed; }
 button.ghost{ background:transparent; border:2px solid var(--brass); color:var(--brass); box-shadow:none; }
+
 .overlay{
   position:fixed; inset:0; background:rgba(10,6,3,.9);
   display:none; align-items:center; justify-content:center; z-index:20; padding:16px;
@@ -217,6 +226,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   100%{ transform:translateY(360px) rotate(360deg); opacity:0; }
 }
 .confetti-piece{ position:absolute; top:0; font-size:18px; animation:confetti-fall linear forwards; pointer-events:none; }
+
 .lobby-choices{ display:flex; flex-direction:column; gap:10px; margin-top:6px; }
 .lobby-choices button.mainbtn{ width:100%; padding:11px 16px; }
 .code-display{
@@ -259,12 +269,16 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
 </style>
 </head>
 <body>
+
 <a class="hub-link" href="../../index.html">← Games</a>
+
 <div class="reconnect-banner" id="reconnectBanner">
   <span id="reconnectText">🔄 Connection lost. Reconnecting<span class="dot3">...</span></span>
   <div><span class="back-link" id="giveUpReconnect">← Return to Menu</span></div>
 </div>
+
 <div class="conn-badge" id="connBadge">🟢 Connected</div>
+
 <div class="overlay show" id="lobbyOverlay">
   <div class="panel">
     <h2>🃏 Hokm Duel 🃏</h2>
@@ -300,6 +314,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     <div><a class="back-link" href="../../index.html" style="text-decoration:none;">← Back to Games</a></div>
   </div>
 </div>
+
 <div class="overlay" id="howToOverlay">
   <div class="panel">
     <h2>❓ How to Play</h2>
@@ -316,8 +331,10 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     <button class="mainbtn" id="closeHowToBtn">Got it</button>
   </div>
 </div>
+
 <h1>🃏 Hokm Duel 🃏</h1>
 <div class="sub" id="subtitle">Dealing the cards...</div>
+
 <div class="hud">
   <div class="score-block">
     <div class="score-label" style="color:var(--red);"><span id="redName">Red</span></div>
@@ -329,6 +346,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     <div class="score-num"><span id="blueTricks">0</span> tricks</div>
   </div>
 </div>
+
 <div class="table-wrap">
   <div class="opp-row" id="oppBackRow">
     <div class="opp-cards" id="oppCards"></div>
@@ -339,6 +357,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     <div class="hokm-symbol pending" id="hokmSymbol">?</div>
   </div>
   <div class="trump-badge" id="stockBadge" style="font-size:11.5px; color:#c9dcc9;"></div>
+
   <div class="stage" id="stage">
     <div class="trump-picker stage-panel" id="trumpPicker" style="display:none;">
       <p id="trumpPickerLabel">You are the hakem — choose the trump suit:</p>
@@ -349,10 +368,12 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
         <button class="suit-btn C" data-suit="C">♣</button>
       </div>
     </div>
+
     <div class="trump-picker stage-panel" id="discardConfirmWrap" style="display:none;">
       <p id="discardLabel">Tap 2 cards below to discard</p>
       <button class="mainbtn" id="confirmDiscardBtn" disabled>Discard Selected (0/2)</button>
     </div>
+
     <div class="trump-picker stage-panel" id="draftPanel" style="display:none;">
       <p id="draftLabel">A new card is revealed:</p>
       <div class="trick-area" style="min-height:66px;">
@@ -363,24 +384,30 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
         <button class="mainbtn ghost" id="draftDiscardBtn">❌ Discard it</button>
       </div>
     </div>
+
     <div class="trump-picker stage-panel" id="waitingPanel" style="display:none;">
       <p id="waitingPanelText">Waiting...</p>
       <div style="font-size:22px; opacity:.5;">🂠 🂠 🂠</div>
     </div>
+
     <div class="trick-area stage-panel" id="trickArea">
       <div class="trick-slot"><div class="who" id="trickLeftWho">Red</div><div class="playing-card empty" id="trickLeftCard"></div></div>
       <div class="trick-slot"><div class="who" id="trickRightWho">Blue</div><div class="playing-card empty" id="trickRightCard"></div></div>
     </div>
   </div>
 </div>
+
 <div class="my-hand-wrap">
   <div class="my-hand-label" id="myHandLabel">Your hand</div>
   <div class="my-hand-row" id="myHandRow"></div>
 </div>
+
 <div class="hint" id="hint">Dealing...</div>
+
 <div class="btnrow">
   <button class="mainbtn ghost" id="restartBtn">Restart From Scratch</button>
 </div>
+
 <div class="overlay" id="overlay">
   <div class="panel">
     <h2 id="resultTitle">🏆 Red Wins the Round</h2>
@@ -388,12 +415,14 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     <button class="mainbtn" id="playAgainBtn">Play Again</button>
   </div>
 </div>
+
 <script>
 (function(){
   const tgUser = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) || null;
   if(window.Telegram && window.Telegram.WebApp){
     try{ window.Telegram.WebApp.ready(); window.Telegram.WebApp.expand(); }catch(e){}
   }
+
   // ---------- card model ----------
   const SUITS = ['S','H','D','C'];
   const SUIT_SYMBOL = { S:'♠', H:'♥', D:'♦', C:'♣' };
@@ -406,6 +435,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
            '<div class="pip bottom">'+r+'<span class="pipsuit">'+s+'</span></div>';
   }
   function isRedSuit(s){ return s==='H' || s==='D'; }
+
   function buildShuffledDeck(){
     const deck = [];
     SUITS.forEach(s=>{ for(let r=2;r<=14;r++) deck.push({suit:s, rank:r}); });
@@ -429,6 +459,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     if(F.suit===ledSuit) return F.rank>L.rank ? followPlay.player : leadPlay.player;
     return leadPlay.player;
   }
+
   // ---------- AI ----------
   function aiChooseTrumpFromHand(hand){
     const present = [...new Set(hand.map(c=>c.suit))];
@@ -481,6 +512,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     const bySuitLenAsc = [...pool].sort((a,b)=> counts[a.suit]-counts[b.suit] || a.rank-b.rank);
     return bySuitLenAsc[0];
   }
+
   // ---------- game state ----------
   let hands = { red:[], blue:[] };
   let stock = [];
@@ -499,6 +531,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   let nextHakemChoice = null;
   let myTeam = 'red'; // 'red' for host/local, 'blue' for guest
   const TRICKS_TO_WIN = 7;
+
   // ---------- confetti ----------
   function sparkleBurst(anchorEl){
     const rect = anchorEl.getBoundingClientRect();
@@ -545,15 +578,19 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   function sfxCard(){ beep(300,0.07,'triangle',.09); }
   function sfxTrick(win){ beep(win?520:260,0.12,'triangle',.11); }
   function sfxWin(){ [523,659,784,1046].forEach((f,i)=>beep(f,0.22,'triangle',.14,i*0.11)); }
+
   // ---------- multiplayer networking ----------
   const SERVER_HOST = 'soldier-wars-server.farshad-tictac.workers.dev';
   const net = {
     ws:null, mode:'local', role:null, myTeam:null, connected:false, code:null,
     myName:'', opponentName:'', gameStarted:false,
     reconnectAttempts:0, reconnectTimer:null, manualExit:false
+  };
+
   if(tgUser && tgUser.first_name){
     document.getElementById('playerNameInput').value = tgUser.first_name;
   }
+
   function netStatus(msg){ document.getElementById('netStatus').textContent = msg || ''; }
   function connBadge(text, show){
     const b = document.getElementById('connBadge');
@@ -590,6 +627,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     document.getElementById('reconnectBanner').classList.add('show');
   }
   function hideReconnectBanner(){ document.getElementById('reconnectBanner').classList.remove('show'); }
+
   function wireSocket(ws){
     net.ws = ws;
     ws.addEventListener('open', ()=>{
@@ -604,6 +642,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     ws.addEventListener('close', ()=> onNetDisconnect());
     ws.addEventListener('error', ()=> onNetDisconnect(true));
   }
+
   function openSocket(role, code){
     net.role = role;
     const url = 'wss://'+SERVER_HOST+'/connect?role='+role+'&code='+code;
@@ -619,6 +658,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       }
     });
   }
+
   function quickMatch(){
     net.mode='pending'; net.role=null; net.code=null;
     document.getElementById('lobbyChoice').style.display='none';
@@ -626,6 +666,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     const ws = new WebSocket('wss://'+SERVER_HOST+'/quickmatch');
     wireSocket(ws);
   }
+
   function attemptReconnect(){
     if(!net.code || !net.role){ showReconnectBanner('🔴 Connection lost'); return; }
     net.reconnectAttempts++;
@@ -636,6 +677,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       if(net.role==='guest'){ setTimeout(()=>{ if(net.connected) send({type:'requestState'}); }, 400); }
     }, 1800);
   }
+
   function onNetDisconnect(isError){
     if(net.mode==='local' || net.manualExit) return;
     net.connected = false;
@@ -654,6 +696,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     if(net.code) attemptReconnect();
     else showReconnectBanner('🔴 Connection lost');
   }
+
   document.getElementById('giveUpReconnect').addEventListener('click', ()=>{
     net.manualExit = true;
     if(net.reconnectTimer) clearTimeout(net.reconnectTimer);
@@ -668,6 +711,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     document.getElementById('lobbyQuickWait').style.display='none';
     netStatus('');
   });
+
   async function createRoom(){
     net.myName = document.getElementById('playerNameInput').value.trim();
     netStatus('Creating room...');
@@ -682,6 +726,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       openSocket('host', data.code);
     }catch(e){ netStatus('Network error. Check your connection.'); }
   }
+
   function joinRoom(code){
     if(!/^\d{4}$/.test(code)){ netStatus('Enter the 4-digit code.'); return; }
     net.myName = document.getElementById('playerNameInput').value.trim();
@@ -689,7 +734,9 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     netStatus('Connecting...');
     openSocket('guest', code);
   }
+
   function send(obj){ if(net.ws && net.ws.readyState===WebSocket.OPEN) net.ws.send(JSON.stringify(obj)); }
+
   function handleNetMessage(msg){
     if(msg.type==='waiting') return;
     if(msg.type==='matched'){
@@ -740,6 +787,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     else if(msg.type==='guestNextRound'){ startNewRound(nextHakemChoice); }
     else if(msg.type==='guestRestart'){ fullReset(); broadcastState(); }
   }
+
   function broadcastState(){
     if(net.mode!=='host' || !net.connected) return;
     send({
@@ -753,6 +801,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       resultText: document.getElementById('resultText').textContent
     });
   }
+
   let lastAppliedPhase = null;
   function applyState(s){
     phase=s.phase; hakem=s.hakem; trump=s.trump; turn=s.turn;
@@ -776,6 +825,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     discardMarked = [];
     updateHUD(); render(); refreshControls();
   }
+
   function hostHandleGuestTrump(suit){
     if(phase!=='hakemTrump' || turn!=='blue') return;
     if(!hands.blue.some(c=>c.suit===suit)) return;
@@ -796,9 +846,11 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     if(!card) return;
     playCard('blue', card);
   }
+
   // ---------- game flow ----------
   function setHint(t){ document.getElementById('hint').textContent = t; }
   function labelFor(team){ return document.getElementById(team==='red'?'redName':'blueName').textContent; }
+
   function startNewRound(nextHakem){
     const deck = buildShuffledDeck();
     hakem = nextHakem || hakem || (Math.random()<0.5?'red':'blue');
@@ -824,6 +876,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     hakem = null;
     startNewRound();
   }
+
   function chooseTrumpFromHand(team, suit){
     trump = suit;
     phase = 'hakemDiscard';
@@ -833,6 +886,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     if(net.mode==='host') broadcastState();
     maybeRunAI();
   }
+
   function confirmDiscardTwo(team, cards){
     const hand = hands[team];
     cards.forEach(card=>{
@@ -858,6 +912,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     if(net.mode==='host') broadcastState();
     maybeRunAI();
   }
+
   function revealNextDraftCard(){
     if(stock.length===0){
       phase='playing';
@@ -878,6 +933,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     if(net.mode==='host') broadcastState();
     maybeRunAI();
   }
+
   function resolveDraftDecision(team, take){
     if(phase!=='drafting' || turn!==team || !draftCard) return;
     if(draftForcedTake===null){
@@ -909,6 +965,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     if(net.mode==='host') broadcastState();
     revealNextDraftCard();
   }
+
   function playCard(team, card){
     if(phase!=='playing' || turn!==team) return;
     const hand = hands[team];
@@ -920,6 +977,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     hand.splice(idx,1);
     trick.push({player:team, card});
     sfxCard();
+
     if(trick.length===1){
       turn = team==='red' ? 'blue' : 'red';
       document.getElementById('subtitle').textContent = (turn===myTeam?'Your':labelFor(turn)+"'s") + ' turn';
@@ -938,6 +996,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       sparkleBurst(winCardEl);
       updateHUD(); render(); refreshControls();
       if(net.mode==='host') broadcastState();
+
       setTimeout(()=>{
         const flyClass = winner==='red' ? 'fly-left' : 'fly-right';
         const leftEl = document.getElementById('trickLeftCard'), rightEl = document.getElementById('trickRightCard');
@@ -959,6 +1018,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       }, 1000);
     }
   }
+
   function checkRoundEnd(){
     let winner=null;
     if(tricksWon.red>=TRICKS_TO_WIN) winner='red';
@@ -988,6 +1048,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     updateHUD();
     if(net.mode==='host') broadcastState();
   }
+
   function maybeRunAI(){
     if(net.mode!=='local') return;
     if(phase==='hakemTrump' && turn==='blue'){
@@ -1010,6 +1071,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       }, 800);
     }
   }
+
   // ---------- input ----------
   function onCardClick(card){
     if(phase==='playing'){
@@ -1053,6 +1115,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     if(net.mode==='guest'){ send({type:'guestDraftDecision', take:false}); return; }
     resolveDraftDecision(myTeam, false);
   });
+
   function requestRestart(){
     if(net.mode==='guest'){ send({type:'guestRestart'}); return; }
     fullReset();
@@ -1062,8 +1125,10 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     if(net.mode==='guest'){ send({type:'guestNextRound'}); return; }
     startNewRound(nextHakemChoice);
   });
+
   document.getElementById('showHowToBtn').addEventListener('click', ()=>{ document.getElementById('howToOverlay').classList.add('show'); });
   document.getElementById('closeHowToBtn').addEventListener('click', ()=>{ document.getElementById('howToOverlay').classList.remove('show'); });
+
   document.getElementById('playLocalBtn').addEventListener('click', ()=>{
     net.mode='local'; net.myTeam=null; net.gameStarted=false; myTeam='red';
     document.getElementById('lobbyOverlay').classList.remove('show');
@@ -1098,6 +1163,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   document.getElementById('joinRoomBtn').addEventListener('click', ()=>{
     joinRoom(document.getElementById('joinCodeInput').value.trim());
   });
+
   // ---------- render ----------
   function updateHUD(){
     document.getElementById('redTricks').textContent = tricksWon.red;
@@ -1116,6 +1182,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     }
     document.getElementById('stockBadge').textContent = (phase==='drafting' || phase==='hakemDiscard' || phase==='oppDiscard') ? ('🂠 Deck: '+stock.length+' cards left') : '';
   }
+
   function setCardEl(el, card, animKey){
     const sig = card ? (card.suit+''+card.rank) : 'empty';
     const changed = el.dataset.sig !== sig;
@@ -1128,12 +1195,14 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       el.classList.remove('card-anim'); void el.offsetWidth; el.classList.add('card-anim');
     }
   }
+
   function refreshControls(){
     const oppTeam = myTeam==='red' ? 'blue' : 'red';
     const oppCount = (hands[oppTeam]||[]).length;
     document.getElementById('oppCards').innerHTML =
       Array.from({length:Math.min(oppCount,13)}).map(()=>'<div class="card-back"></div>').join('');
     document.getElementById('oppLabel').textContent = labelFor(oppTeam)+': '+oppCount+' cards'+(oppTeam===hakem?' (hakem)':'');
+
     // trump picker — only enable suits actually present in my hand
     const showTrumpPicker = phase==='hakemTrump' && turn===myTeam;
     document.getElementById('trumpPicker').style.display = showTrumpPicker ? 'block' : 'none';
@@ -1145,6 +1214,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
         btn.style.opacity = btn.disabled ? '.3' : '1';
       });
     }
+
     // discard confirm panel
     const showDiscard = (phase==='hakemDiscard' || phase==='oppDiscard') && turn===myTeam;
     document.getElementById('discardConfirmWrap').style.display = showDiscard ? 'block' : 'none';
@@ -1154,6 +1224,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       btn.disabled = discardMarked.length!==2;
       btn.textContent = 'Discard Selected ('+discardMarked.length+'/2)';
     }
+
     // draft panel
     const draftIsMine = phase==='drafting' && turn===myTeam && draftCard;
     const showDraft = draftIsMine; // panel itself shows for both the free choice and the forced reveal
@@ -1171,6 +1242,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     } else {
       document.getElementById('draftCardDisplay').classList.remove('discarded');
     }
+
     // waiting panel — fills the stage whenever it's the opponent's turn to act off-trick
     const nonPlayingPhase = phase==='hakemTrump'||phase==='hakemDiscard'||phase==='oppDiscard'||phase==='drafting';
     const iAmActing = showTrumpPicker || showDiscard || showDraft;
@@ -1184,6 +1256,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       else if(phase==='drafting') msg = labelFor(turn)+' is deciding on a card...';
       document.getElementById('waitingPanelText').textContent = msg;
     }
+
     // trick area
     const ledSuitNow = trick.length ? trick[0].card.suit : null;
     const leftPlay = trick.find(p=>p.player==='red');
@@ -1191,6 +1264,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     setCardEl(document.getElementById('trickLeftCard'), leftPlay ? leftPlay.card : null);
     setCardEl(document.getElementById('trickRightCard'), rightPlay ? rightPlay.card : null);
     document.getElementById('trickArea').style.display = phase==='playing' ? 'flex' : 'none';
+
     // my hand — behavior depends on phase
     const row = document.getElementById('myHandRow');
     row.innerHTML = '';
@@ -1215,7 +1289,9 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     });
     document.getElementById('myHandLabel').textContent = 'Your hand ('+myHand.length+' cards)';
   }
+
   function render(){ refreshControls(); }
+
   updateNameLabels();
 })();
 </script>
