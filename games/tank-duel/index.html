@@ -303,8 +303,9 @@ button.firebtn{ width:100%; font-size:15px; padding:12px; }
   const MAX_HP = 220;
   const PREVIEW_STEPS = 42; // short preview — you can't see all the way to impact
 
+  const INFINITE_AMMO = 999999;
   const SHELL_TYPES = {
-    light:  { label:'Light',  icon:'🪶', dmgMax:20, directBonus:10, radius:28, startCount:6, color:'#ffe17a' },
+    light:  { label:'Light',  icon:'🪶', dmgMax:20, directBonus:10, radius:28, startCount:INFINITE_AMMO, color:'#ffe17a' },
     medium: { label:'Medium', icon:'💣', dmgMax:32, directBonus:16, radius:38, startCount:8, color:'#ffb347' },
     heavy:  { label:'Heavy',  icon:'💥', dmgMax:48, directBonus:24, radius:50, startCount:3, color:'#ff5a3a' }
   };
@@ -692,6 +693,7 @@ button.firebtn{ width:100%; font-size:15px; padding:12px; }
     phase = 'battle';
     wind = Math.round(rand(-30,30));
     particles = [];
+    lastAimedTurn = null;
     pools = {
       red:  { light:SHELL_TYPES.light.startCount, medium:SHELL_TYPES.medium.startCount, heavy:SHELL_TYPES.heavy.startCount },
       blue: { light:SHELL_TYPES.light.startCount, medium:SHELL_TYPES.medium.startCount, heavy:SHELL_TYPES.heavy.startCount }
@@ -722,7 +724,7 @@ button.firebtn{ width:100%; font-size:15px; padding:12px; }
     Object.keys(SHELL_TYPES).forEach(k=>{
       const btn = document.querySelector('.tier-btn[data-shell="'+k+'"]');
       const countEl = document.getElementById('cnt-'+k);
-      if(countEl) countEl.textContent = myPool[k];
+      if(countEl) countEl.textContent = myPool[k]>=INFINITE_AMMO ? '∞' : myPool[k];
       if(btn){
         btn.disabled = myPool[k] <= 0;
         btn.classList.toggle('active', selectedShell===k);
@@ -734,6 +736,15 @@ button.firebtn{ width:100%; font-size:15px; padding:12px; }
     }
   }
 
+  let lastAimedTurn = null;
+  function randomizeAim(){
+    const angle = Math.round(rand(15,75));
+    const power = Math.round(rand(25,85));
+    document.getElementById('angleSlider').value = angle;
+    document.getElementById('powerSlider').value = power;
+    document.getElementById('angleVal').textContent = angle+'°';
+    document.getElementById('powerVal').textContent = power+'%';
+  }
   function refreshAimPanel(){
     const mine = phase==='battle' && myTurnToControl(turn);
     document.getElementById('angleSlider').disabled = !mine || !!shell;
@@ -744,6 +755,10 @@ button.firebtn{ width:100%; font-size:15px; padding:12px; }
       if(!myTurnToControl(turn)) setHint("Waiting for the other tank to fire...");
       else if(shell) setHint('Shell in flight...');
       else setHint('Set your angle and power, then fire');
+    }
+    if(mine && !shell && phase==='battle' && lastAimedTurn!==turn){
+      randomizeAim();
+      lastAimedTurn = turn;
     }
   }
 
