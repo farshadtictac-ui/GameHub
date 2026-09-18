@@ -427,7 +427,8 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     return deck;
   }
   function sortHand(hand){
-    hand.sort((a,b)=> SUITS.indexOf(a.suit)-SUITS.indexOf(b.suit) || b.rank-a.rank);
+    const order = trump ? [trump, ...SUITS.filter(s=>s!==trump)] : SUITS;
+    hand.sort((a,b)=> order.indexOf(a.suit)-order.indexOf(b.suit) || b.rank-a.rank);
   }
   function playableCards(hand, ledSuit){
     if(!ledSuit) return hand;
@@ -751,7 +752,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     if(net.mode!=='host') return;
     if(msg.type==='guestChooseTrump') hostHandleGuestTrump(msg.seat, msg.suit);
     else if(msg.type==='guestPlayCard') hostHandleGuestPlay(msg.seat, msg.suit, msg.rank);
-    else if(msg.type==='guestNextRound'){ startNewRound(); }
+    else if(msg.type==='guestNextRound'){ startNewRound(nextHakemSeat); }
     else if(msg.type==='guestRestart'){ fullReset(); }
   }
 
@@ -828,14 +829,16 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   function setHint(t){ document.getElementById('hint').textContent = t; }
 
   let pendingDeck = [];
+  let nextHakemSeat = null;
   function startNewRound(nextHakem){
     const deck = buildShuffledDeck();
+    trump = null;
     hakem = nextHakem || NEXT_SEAT[hakem] || 'S';
     hands = {N:[],E:[],S:[],W:[]};
     hands[hakem] = deck.slice(0,5);
     pendingDeck = deck.slice(5);
     sortHand(hands[hakem]);
-    trick=[]; tricksWon={NS:0,EW:0}; trump=null;
+    trick=[]; tricksWon={NS:0,EW:0};
     turn = hakem;
     phase = 'trump';
     document.getElementById('overlay').classList.remove('show');
@@ -940,12 +943,14 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     const myTeam = TEAM_OF[mySeat];
     if(winner!=='draw'){
       roundsWon[winner]++;
+      nextHakemSeat = (TEAM_OF[hakem]===winner) ? hakem : NEXT_SEAT[hakem];
       const wName = winner===myTeam ? 'Your Team' : 'Opponents';
       document.getElementById('resultTitle').textContent = (winner===myTeam?'🏆':'😔')+' '+wName+' Win the Round!';
       document.getElementById('resultText').textContent = wName+' won '+tricksWon[winner]+' of the 13 tricks. (Round win #'+roundsWon[winner]+')';
       if(winner===myTeam){ sfxWin(); launchConfetti(); }
       if(net.mode==='host' || net.mode==='guest'){ logEvent('result', { result: winner===myTeam?'win':'loss' }); }
     } else {
+      nextHakemSeat = NEXT_SEAT[hakem];
       document.getElementById('resultTitle').textContent = '🤝 Draw!';
       document.getElementById('resultText').textContent = 'It ended even.';
     }
@@ -990,7 +995,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   }
   function requestNextRound(){
     if(net.mode==='guest'){ send({type:'guestNextRound'}); return; }
-    startNewRound();
+    startNewRound(nextHakemSeat);
   }
   document.getElementById('restartBtn').addEventListener('click', requestRestart);
   document.getElementById('playAgainBtn').addEventListener('click', requestNextRound);
