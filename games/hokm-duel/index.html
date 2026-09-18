@@ -339,11 +339,13 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   <div class="score-block">
     <div class="score-label" style="color:var(--red);"><span id="redName">Red</span></div>
     <div class="score-num"><span id="redTricks">0</span> tricks</div>
+    <div class="score-num" style="font-size:.75em;opacity:.75;"><span id="redRounds">0</span> rounds</div>
   </div>
   <div id="turnBadge" class="turn-badge red">Red</div>
   <div class="score-block right">
     <div class="score-label" style="color:var(--blue);"><span id="blueName">Blue</span></div>
     <div class="score-num"><span id="blueTricks">0</span> tricks</div>
+    <div class="score-num" style="font-size:.75em;opacity:.75;"><span id="blueRounds">0</span> rounds</div>
   </div>
 </div>
 
@@ -404,10 +406,6 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
 
 <div class="hint" id="hint">Dealing...</div>
 
-<div class="btnrow">
-  <button class="mainbtn ghost" id="restartBtn">Restart From Scratch</button>
-</div>
-
 <div class="overlay" id="overlay">
   <div class="panel">
     <h2 id="resultTitle">🏆 Red Wins the Round</h2>
@@ -446,7 +444,8 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     return deck;
   }
   function sortHand(hand){
-    hand.sort((a,b)=> SUITS.indexOf(a.suit)-SUITS.indexOf(b.suit) || b.rank-a.rank);
+    const order = trump ? [trump, ...SUITS.filter(s=>s!==trump)] : SUITS;
+    hand.sort((a,b)=> order.indexOf(a.suit)-order.indexOf(b.suit) || b.rank-a.rank);
   }
   function playableCards(hand, ledSuit){
     if(!ledSuit) return hand;
@@ -531,6 +530,8 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   let nextHakemChoice = null;
   let myTeam = 'red'; // 'red' for host/local, 'blue' for guest
   const TRICKS_TO_WIN = 7;
+  const ROUNDS_TO_WIN_MATCH = 7;
+  let matchOver = false;
 
   // ---------- confetti ----------
   function sparkleBurst(anchorEl){
@@ -798,7 +799,8 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       subtitle: document.getElementById('subtitle').textContent,
       hint: document.getElementById('hint').textContent,
       resultTitle: document.getElementById('resultTitle').textContent,
-      resultText: document.getElementById('resultText').textContent
+      resultText: document.getElementById('resultText').textContent,
+      matchOver
     });
   }
 
@@ -806,6 +808,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   function applyState(s){
     phase=s.phase; hakem=s.hakem; trump=s.trump; turn=s.turn;
     roundsWon=s.roundsWon; tricksWon=s.tricksWon; trick=s.trick; lastWinner=s.winner;
+    matchOver = !!s.matchOver;
     hands.blue = s.myHand;
     hands.red = new Array(s.oppCount).fill(null);
     stock = new Array(s.stockCount).fill(null);
@@ -815,6 +818,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     if(phase==='gameover' && lastAppliedPhase!=='gameover'){
       document.getElementById('resultTitle').textContent = s.resultTitle;
       document.getElementById('resultText').textContent = s.resultText;
+      document.getElementById('playAgainBtn').textContent = matchOver ? '🔄 New Match' : 'Play Again';
       document.getElementById('overlay').classList.add('show');
       if(s.winner && s.winner!=='draw'){ sfxWin(); launchConfetti(); }
       if(net.myTeam && s.winner && s.winner!=='draw'){ logEvent('result', { result: s.winner===net.myTeam ? 'win':'loss' }); }
@@ -873,12 +877,14 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   }
   function fullReset(){
     roundsWon = {red:0,blue:0};
+    matchOver = false;
     hakem = null;
     startNewRound();
   }
 
   function chooseTrumpFromHand(team, suit){
     trump = suit;
+    sortHand(hands.red); sortHand(hands.blue);
     phase = 'hakemDiscard';
     document.getElementById('subtitle').textContent = 'Trump is '+SUIT_SYMBOL[suit]+' — '+(hakem===myTeam?'you must':labelFor(hakem)+' must')+' discard 2 cards';
     setHint(hakem===myTeam ? 'Tap 2 cards to discard' : 'Waiting for the hakem to discard...');
@@ -938,12 +944,12 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     if(phase!=='drafting' || turn!==team || !draftCard) return;
     if(draftForcedTake===null){
       // first card of the pair — real choice
-      if(take) hands[team].push(draftCard); else discardPile.push(draftCard);
+      if(take) { hands[team].push(draftCard); sortHand(hands[team]); } else discardPile.push(draftCard);
       draftForcedTake = !take; // if they took it, the next is forced-discard; if not, forced-take
       draftCard = null;
       updateHUD(); render(); refreshControls();
       if(net.mode==='host') broadcastState();
-      setTimeout(()=>{ revealSecondDraftCard(team); }, 500);
+      setTimeout(()=>{ revealSecondDraftCard(team); }, 250);
     }
   }
   function revealSecondDraftCard(team){
@@ -954,10 +960,10 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     updateHUD(); render(); refreshControls();
     if(net.mode==='host') broadcastState();
     setTimeout(()=>{
-      if(forcedTake) hands[team].push(draftCard); else discardPile.push(draftCard);
+      if(forcedTake) { hands[team].push(draftCard); sortHand(hands[team]); } else discardPile.push(draftCard);
       draftCard = null; draftForcedTake = null;
       finishDraftTurn(team);
-    }, 2200);
+    }, 1100);
   }
   function finishDraftTurn(team){
     turn = team==='red' ? 'blue' : 'red';
@@ -1035,14 +1041,26 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
       roundsWon[winner]++;
       nextHakemChoice = winner;
       const wName = labelFor(winner);
-      document.getElementById('resultTitle').textContent = (winner==='red'?'🔴':'🔵')+' '+wName+' Wins the Round!';
-      document.getElementById('resultText').textContent = wName+' won '+tricksWon[winner]+' of the 13 tricks. (Round win #'+roundsWon[winner]+')';
+      if(roundsWon[winner] >= ROUNDS_TO_WIN_MATCH){
+        matchOver = true;
+        const loser = winner==='red' ? 'blue' : 'red';
+        document.getElementById('resultTitle').textContent = '🏆 '+wName+' Wins the Match!';
+        document.getElementById('resultText').textContent = wName+' won '+roundsWon[winner]+' rounds to '+roundsWon[loser]+'.';
+        document.getElementById('playAgainBtn').textContent = '🔄 New Match';
+      } else {
+        matchOver = false;
+        document.getElementById('resultTitle').textContent = (winner==='red'?'🔴':'🔵')+' '+wName+' Wins the Round!';
+        document.getElementById('resultText').textContent = wName+' won '+tricksWon[winner]+' of the 13 tricks. Rounds: Red '+roundsWon.red+' — Blue '+roundsWon.blue+'.';
+        document.getElementById('playAgainBtn').textContent = 'Play Again';
+      }
       sfxWin(); launchConfetti();
       if(net.myTeam){ logEvent('result', { result: winner===net.myTeam ? 'win':'loss' }); }
     } else {
+      matchOver = false;
       nextHakemChoice = hakem==='red' ? 'blue' : 'red';
       document.getElementById('resultTitle').textContent = '🤝 Draw!';
       document.getElementById('resultText').textContent = 'It ended even.';
+      document.getElementById('playAgainBtn').textContent = 'Play Again';
     }
     document.getElementById('overlay').classList.add('show');
     updateHUD();
@@ -1052,9 +1070,9 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   function maybeRunAI(){
     if(net.mode!=='local') return;
     if(phase==='hakemTrump' && turn==='blue'){
-      setTimeout(()=>{ chooseTrumpFromHand('blue', aiChooseTrumpFromHand(hands.blue)); }, 700);
+      setTimeout(()=>{ chooseTrumpFromHand('blue', aiChooseTrumpFromHand(hands.blue)); }, 350);
     } else if((phase==='hakemDiscard' || phase==='oppDiscard') && turn==='blue'){
-      setTimeout(()=>{ confirmDiscardTwo('blue', aiChooseDiscardTwo(hands.blue, trump)); }, 700);
+      setTimeout(()=>{ confirmDiscardTwo('blue', aiChooseDiscardTwo(hands.blue, trump)); }, 350);
     } else if(phase==='drafting' && turn==='blue' && draftCard){
       const forced = draftForcedTake;
       setTimeout(()=>{
@@ -1062,7 +1080,7 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
           const take = aiDraftDecision(draftCard, trump);
           resolveDraftDecision('blue', take);
         }
-      }, 650);
+      }, 325);
     } else if(phase==='playing' && turn==='blue'){
       setTimeout(()=>{
         const ledSuitNow = trick.length ? trick[0].card.suit : null;
@@ -1116,12 +1134,12 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
     resolveDraftDecision(myTeam, false);
   });
 
-  function requestRestart(){
-    if(net.mode==='guest'){ send({type:'guestRestart'}); return; }
-    fullReset();
-  }
-  document.getElementById('restartBtn').addEventListener('click', requestRestart);
   document.getElementById('playAgainBtn').addEventListener('click', ()=>{
+    if(matchOver){
+      if(net.mode==='guest'){ send({type:'guestRestart'}); return; }
+      fullReset();
+      return;
+    }
     if(net.mode==='guest'){ send({type:'guestNextRound'}); return; }
     startNewRound(nextHakemChoice);
   });
@@ -1168,6 +1186,8 @@ button.ghost{ background:transparent; border:2px solid var(--brass); color:var(-
   function updateHUD(){
     document.getElementById('redTricks').textContent = tricksWon.red;
     document.getElementById('blueTricks').textContent = tricksWon.blue;
+    document.getElementById('redRounds').textContent = roundsWon.red;
+    document.getElementById('blueRounds').textContent = roundsWon.blue;
     const badge = document.getElementById('turnBadge');
     badge.textContent = turn===null ? 'Resolving...' : (turn===myTeam ? 'Your Turn' : labelFor(turn)+"'s Turn");
     badge.className = 'turn-badge '+turn;
